@@ -1,29 +1,123 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserState } from '../types';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
+import { analyticsApi } from '../src/services/api';
+
+interface AdminStats {
+  total_users: number;
+  total_deposits: number;
+  active_loans: number;
+  pending_approvals: number;
+  user_growth: string;
+  deposit_growth: string;
+  loan_growth: string;
+}
+
+interface DepositData {
+  day: string;
+  total: number;
+}
+
+interface ActivityItem {
+  type: string;
+  time: string;
+  label: string;
+  description: string;
+}
 
 interface AdminOverviewProps {
   user: UserState;
 }
 
 const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
-  const depositData = [
-    { day: 'Mon', total: 400 },
-    { day: 'Tue', total: 700 },
-    { day: 'Wed', total: 300 },
-    { day: 'Thu', total: 900 },
-    { day: 'Fri', total: 600 },
-    { day: 'Sat', total: 200 },
-    { day: 'Sun', total: 300 },
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [depositData, setDepositData] = useState<DepositData[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [depositDays, setDepositDays] = useState(7);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    fetchDepositTrends();
+  }, [depositDays]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [statsRes, depositsRes, activityRes] = await Promise.all([
+        analyticsApi.getAdminStats(),
+        analyticsApi.getDepositTrends(7),
+        analyticsApi.getAdminActivity(10)
+      ]);
+
+      if (statsRes.success) {
+        setStats(statsRes.data);
+      }
+      if (depositsRes.success) {
+        setDepositData(depositsRes.data || []);
+      }
+      if (activityRes.success) {
+        setActivity(activityRes.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching admin data:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDepositTrends = async () => {
+    try {
+      const response = await analyticsApi.getDepositTrends(depositDays);
+      if (response.success) {
+        setDepositData(response.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching deposit trends:', err);
+    }
+  };
+
+  const formatCurrency = (value: number): string => {
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`;
+    }
+    if (value >= 1000) {
+      return `$${(value / 1000).toFixed(1)}K`;
+    }
+    return `$${value.toFixed(0)}`;
+  };
+
+  const formatNumber = (value: number): string => {
+    return value.toLocaleString();
+  };
+
+  // Default stats for loading state
+  const displayStats = stats || {
+    total_users: 0,
+    total_deposits: 0,
+    active_loans: 0,
+    pending_approvals: 0,
+    user_growth: '0%',
+    deposit_growth: '0%',
+    loan_growth: '0%'
+  };
+
+  const statCards = [
+    { label: 'Total Users', value: formatNumber(displayStats.total_users), grow: displayStats.user_growth, icon: 'group' },
+    { label: 'Total Deposits', value: formatCurrency(displayStats.total_deposits), grow: displayStats.deposit_growth, icon: 'account_balance' },
+    { label: 'Active Loans', value: formatNumber(displayStats.active_loans), grow: displayStats.loan_growth, icon: 'receipt_long' },
+    { label: 'Pending Approvals', value: formatNumber(displayStats.pending_approvals), grow: displayStats.pending_approvals > 0 ? 'Action Required' : 'All Clear', icon: 'pending_actions', urgent: displayStats.pending_approvals > 0 },
   ];
 
-  const stats = [
-    { label: 'Total Users', value: '12,450', grow: '+5%', icon: 'group' },
-    { label: 'Total Deposits', value: '$45.2M', grow: '+12%', icon: 'account_balance' },
-    { label: 'Active Loans', value: '320', grow: '+2%', icon: 'receipt_long' },
-    { label: 'Pending Approvals', value: '15', grow: 'Action Required', icon: 'pending_actions', urgent: true },
-  ];
+  // Find max deposit for highlighting
+  const maxDeposit = Math.max(...depositData.map(d => d.total), 0);
+  const maxDepositIndex = depositData.findIndex(d => d.total === maxDeposit);
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
@@ -32,9 +126,16 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
         <p className="text-slate-500">Sovereign Edition • System Health & Real-time Analytics</p>
       </div>
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-red-600 dark:text-red-400">
+          {error}
+          <button onClick={() => setError('')} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-         {stats.map((s, i) => (
-           <div key={i} className="bg-surface-light dark:bg-surface-dark p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+         {statCards.map((s, i) => (
+           <div key={i} className={`bg-surface-light dark:bg-surface-dark p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4 ${loading ? 'animate-pulse' : ''}`}>
               <div className="flex justify-between items-start">
                  <div className="size-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-primary">
                     <span className="material-symbols-outlined">{s.icon}</span>
@@ -55,44 +156,53 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
          <div className="lg:col-span-2 bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
             <div className="flex justify-between items-center mb-10">
                <h3 className="text-xl font-bold">Deposit Trends</h3>
-               <select className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-xs font-bold px-3 py-1.5">
-                  <option>Last 7 Days</option>
-                  <option>Last 30 Days</option>
+               <select 
+                 value={depositDays}
+                 onChange={(e) => setDepositDays(parseInt(e.target.value))}
+                 className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-xs font-bold px-3 py-1.5"
+               >
+                  <option value={7}>Last 7 Days</option>
+                  <option value={30}>Last 30 Days</option>
                </select>
             </div>
             <div className="h-64 w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={depositData}>
-                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600, fill: '#94a3b8'}} />
-                     <YAxis hide />
-                     <Bar dataKey="total" radius={[8, 8, 0, 0]}>
-                        {depositData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 3 ? '#135bec' : '#475569'} fillOpacity={index === 3 ? 1 : 0.6} />
-                        ))}
-                     </Bar>
-                  </BarChart>
-               </ResponsiveContainer>
+               {depositData.length > 0 ? (
+                 <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={depositData}>
+                       <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600, fill: '#94a3b8'}} />
+                       <YAxis hide />
+                       <Bar dataKey="total" radius={[8, 8, 0, 0]}>
+                          {depositData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={index === maxDepositIndex ? '#135bec' : '#475569'} fillOpacity={index === maxDepositIndex ? 1 : 0.6} />
+                          ))}
+                       </Bar>
+                    </BarChart>
+                 </ResponsiveContainer>
+               ) : (
+                 <div className="h-full flex items-center justify-center text-slate-400">
+                   {loading ? 'Loading...' : 'No deposit data available'}
+                 </div>
+               )}
             </div>
          </div>
 
          <div className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
             <div className="px-6 py-5 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
                <h3 className="font-bold">System Activity</h3>
-               <button className="text-xs font-bold text-primary">View All</button>
+               <button onClick={fetchData} className="text-xs font-bold text-primary">Refresh</button>
             </div>
-            <div className="flex-1 divide-y divide-slate-50 dark:divide-slate-800 overflow-y-auto">
-               {[
-                 { time: '10:42 AM', label: 'Large Deposit Verified', desc: 'Corp Acc #8821 verified.' },
-                 { time: '09:15 AM', label: 'Loan Flagged', desc: 'Application #L-S92 risk discrepancy.' },
-                 { time: 'Yesterday', label: 'System Backup', desc: 'Database success. Size: 4.2TB' },
-                 { time: 'Yesterday', label: 'Failed Login', desc: 'Multiple attempts from unknown IP.' }
-               ].map((feed, i) => (
+            <div className="flex-1 divide-y divide-slate-50 dark:divide-slate-800 overflow-y-auto max-h-80">
+               {activity.length > 0 ? activity.map((feed, i) => (
                  <div key={i} className="px-6 py-4 space-y-1 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-default">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">{feed.time}</p>
                     <p className="text-sm font-bold">{feed.label}</p>
-                    <p className="text-xs text-slate-500 leading-relaxed">{feed.desc}</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">{feed.description}</p>
                  </div>
-               ))}
+               )) : (
+                 <div className="px-6 py-8 text-center text-slate-400">
+                   {loading ? 'Loading activity...' : 'No recent activity'}
+                 </div>
+               )}
             </div>
          </div>
       </div>

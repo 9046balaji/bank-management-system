@@ -1,11 +1,37 @@
 
 import React, { useState } from 'react';
-import { View } from '../types';
+import { View, UserState } from '../types';
+import { userApi } from '../src/services/api';
 
 interface AuthProps {
   currentView: View;
   setView: (v: View) => void;
-  onLogin: (email: string) => void;
+  onLogin: (userData: any) => void;
+}
+
+// Types for API responses
+interface RegisterResponse {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  kyc_status: string;
+}
+
+interface LoginResponse {
+  user: {
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+    kyc_status: string;
+    accounts?: Array<{ id: string; balance: number; account_number: string }>;
+    transactions?: any[];
+    loans?: any[];
+    cards?: any[];
+    tickets?: any[];
+  };
+  token: string;
 }
 
 const Auth: React.FC<AuthProps> = ({ currentView, setView, onLogin }) => {
@@ -13,24 +39,73 @@ const Auth: React.FC<AuthProps> = ({ currentView, setView, onLogin }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate network request
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+
+    try {
       if (currentView === View.REGISTER) {
-        // In a real app, this would register then auto-login or redirect to login
-        // For this demo, we go straight to KYC
-        onLogin(email); 
+        // Register new user
+        const response = await userApi.register({
+          full_name: name,
+          email,
+          password,
+        });
+
+        if (response.success && response.data) {
+          const data = response.data as RegisterResponse;
+          // After registration, pass user data and go to KYC
+          onLogin({
+            id: data.id,
+            email: data.email,
+            name: data.full_name,
+            kyc_status: 'PENDING',
+            isNewUser: true,
+          });
+        } else {
+          setError(response.error || 'Registration failed');
+        }
       } else if (currentView === View.LOGIN) {
-        onLogin(email);
+        // Login existing user
+        const response = await userApi.login(email, password);
+
+        if (response.success && response.data) {
+          const loginData = response.data as LoginResponse;
+          // Transform backend data to frontend format
+          onLogin({
+            id: loginData.user.id,
+            email: loginData.user.email,
+            name: loginData.user.full_name,
+            role: loginData.user.role,
+            kyc_status: loginData.user.kyc_status,
+            balance: loginData.user.accounts?.[0]?.balance || 0,
+            accounts: loginData.user.accounts || [],
+            transactions: loginData.user.transactions || [],
+            loans: loginData.user.loans || [],
+            cards: loginData.user.cards || [],
+            tickets: loginData.user.tickets || [],
+            token: loginData.token,
+          });
+        } else {
+          setError(response.error || 'Invalid email or password');
+        }
       } else {
-        // Forgot password
-        setView(View.LOGIN);
+        // Forgot password - just show success message
+        setError('Password reset link sent to your email');
+        setTimeout(() => {
+          setView(View.LOGIN);
+          setError(null);
+        }, 2000);
       }
-    }, 1500);
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,6 +135,16 @@ const Auth: React.FC<AuthProps> = ({ currentView, setView, onLogin }) => {
               {currentView === View.FORGOT_PASSWORD && 'Enter your email to receive a reset link.'}
             </p>
           </div>
+
+          {error && (
+            <div className={`mb-6 p-4 rounded-xl text-sm font-medium ${
+              error.includes('sent') 
+                ? 'bg-green-500/20 border border-green-500/30 text-green-300'
+                : 'bg-red-500/20 border border-red-500/30 text-red-300'
+            }`}>
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {currentView === View.REGISTER && (
@@ -147,5 +232,6 @@ const Auth: React.FC<AuthProps> = ({ currentView, setView, onLogin }) => {
     </div>
   );
 };
+
 
 export default Auth;

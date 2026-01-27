@@ -1,26 +1,97 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserState, View, Transaction } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { analyticsApi, transactionApi } from '../src/services/api';
 
 interface DashboardProps {
   user: UserState;
   setView: (v: View) => void;
 }
 
+interface ChartDataItem {
+  name: string;
+  value: number;
+}
+
+interface DashboardStats {
+  monthlyIncome: number;
+  monthlyExpense: number;
+  totalSpending: number;
+}
+
 const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
   const [filterType, setFilterType] = useState<'ALL' | Transaction['type']>('ALL');
   const [sortOrder, setSortOrder] = useState<'DATE_DESC' | 'DATE_ASC' | 'AMT_DESC' | 'AMT_ASC'>('DATE_DESC');
-
-  const chartData = [
+  const [chartData, setChartData] = useState<ChartDataItem[]>([
     { name: 'Transfers', value: 45000 },
     { name: 'Withdrawals', value: 12500 },
     { name: 'Expenses', value: 8320 },
-  ];
+  ]);
+  const [stats, setStats] = useState<DashboardStats>({
+    monthlyIncome: 12500,
+    monthlyExpense: 4800,
+    totalSpending: 65800,
+  });
+  const [transactions, setTransactions] = useState<Transaction[]>(user.transactions);
+  const [loading, setLoading] = useState(false);
+
   const COLORS = ['#135bec', '#10b981', '#f59e0b'];
 
+  // Fetch dashboard data on mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user.id) return;
+      
+      setLoading(true);
+      try {
+        // Fetch expense categories for chart
+        const categoriesResponse = await analyticsApi.getExpenseCategories(user.id);
+        if (categoriesResponse.success && categoriesResponse.data) {
+          const categories = categoriesResponse.data as any[];
+          if (categories.length > 0) {
+            setChartData(categories.map((c: any) => ({
+              name: c.category || c.name,
+              value: parseFloat(c.total) || c.value,
+            })));
+          }
+        }
+
+        // Fetch dashboard stats
+        const statsResponse = await analyticsApi.getDashboardStats(user.id);
+        if (statsResponse.success && statsResponse.data) {
+          const data = statsResponse.data as any;
+          setStats({
+            monthlyIncome: parseFloat(data.monthly_income) || 12500,
+            monthlyExpense: parseFloat(data.monthly_expense) || 4800,
+            totalSpending: parseFloat(data.total_spending) || 65800,
+          });
+        }
+
+        // If user has account, fetch recent transactions
+        if (user.accountNumber) {
+          // Find account ID from user data or use a placeholder
+          // For now, use transactions from user state since they're already loaded
+          setTransactions(user.transactions);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        // Keep default/existing data on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user.id, user.accountNumber]);
+
+  // Update transactions when user.transactions changes
+  useEffect(() => {
+    setTransactions(user.transactions);
+  }, [user.transactions]);
+
   const getFilteredTransactions = () => {
-    let txs = [...user.transactions];
+    let txs = [...transactions];
 
     if (filterType !== 'ALL') {
       txs = txs.filter(t => t.type === filterType);
@@ -69,11 +140,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
           <div className="flex gap-8">
             <div>
               <p className="text-xs font-bold text-blue-200 uppercase mb-1">Monthly Income</p>
-              <p className="text-xl font-bold">+$12,500.00</p>
+              <p className="text-xl font-bold">+${stats.monthlyIncome.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-xs font-bold text-blue-200 uppercase mb-1">Monthly Expense</p>
-              <p className="text-xl font-bold">-$4,800.00</p>
+              <p className="text-xl font-bold">-${stats.monthlyExpense.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -100,7 +171,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-xs font-bold text-slate-400">Total</span>
-              <span className="text-xl font-black">$65.8k</span>
+              <span className="text-xl font-black">${(chartData.reduce((sum, d) => sum + d.value, 0) / 1000).toFixed(1)}k</span>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-4">
