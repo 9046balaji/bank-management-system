@@ -6,6 +6,12 @@ import userRoutes from './routes/users';
 import accountRoutes from './routes/accounts';
 import transactionRoutes from './routes/transactions';
 import loanRoutes from './routes/loans';
+import cardRoutes from './routes/cards';
+import withdrawalRoutes from './routes/withdrawals';
+import supportRoutes from './routes/support';
+import analyticsRoutes from './routes/analytics';
+import configRoutes from './routes/config';
+import mlRoutes from './routes/ml';
 
 dotenv.config({ path: '.env.local' });
 
@@ -55,6 +61,12 @@ app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/loans', loanRoutes);
+app.use('/api/cards', cardRoutes);
+app.use('/api/withdrawals', withdrawalRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/config', configRoutes);
+app.use('/api/ml', mlRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

@@ -155,4 +155,120 @@ router.patch('/:id/balance', async (req: Request, res: Response) => {
   }
 });
 
+// ==========================================
+// DEPOSIT FUNDS
+// ==========================================
+router.post('/:id/deposit', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { amount, description = 'Manual Deposit', source = 'BANK_TRANSFER' } = req.body;
+
+    // Validate amount
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be greater than 0',
+      });
+    }
+
+    // Verify account exists and is active
+    const accountCheck = await query(
+      'SELECT * FROM accounts WHERE id = $1',
+      [id]
+    );
+
+    if (accountCheck.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+    }
+
+    const account = accountCheck.rows[0];
+
+    if (!account.is_active) {
+      return res.status(400).json({
+        success: false,
+        error: 'Account is inactive',
+      });
+    }
+
+    // Generate reference ID
+    const referenceId = `DEP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    // Perform atomic deposit using transaction
+    await query('BEGIN');
+
+    try {
+      // Update balance
+      const updatedAccount = await query(
+        'UPDATE accounts SET balance = balance + $1 WHERE id = $2 RETURNING *',
+        [amount, id]
+      );
+
+      // Create transaction record
+      await query(
+        `INSERT INTO transactions (account_id, type, amount, description, status, reference_id)
+         VALUES ($1, 'DEPOSIT', $2, $3, 'COMPLETED', $4)`,
+        [id, amount, `${description} (${source})`, referenceId]
+      );
+
+      await query('COMMIT');
+
+      res.json({
+        success: true,
+        message: 'Deposit completed successfully',
+        reference_id: referenceId,
+        amount: amount,
+        previous_balance: parseFloat(account.balance),
+        new_balance: parseFloat(updatedAccount.rows[0].balance),
+      });
+    } catch (error) {
+      await query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error processing deposit:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to process deposit',
+    });
+  }
+});
+
+// ==========================================
+// GET ACCOUNT BY ACCOUNT NUMBER
+// ==========================================
+router.get('/number/:accountNumber', async (req: Request, res: Response) => {
+  try {
+    const { accountNumber } = req.params;
+    const result = await query(
+      `SELECT a.id, a.account_number, a.account_type, a.is_active, u.full_name
+       FROM accounts a
+       JOIN users u ON a.user_id = u.id
+       WHERE a.account_number = $1`,
+      [accountNumber]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Account not found',
+      });
+    }
+
+    // Don't expose balance for security
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Error fetching account:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch account',
+    });
+  }
+});
+
 export default router;

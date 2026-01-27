@@ -152,4 +152,373 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// ==========================================
+// AUTHENTICATION ROUTES
+// ==========================================
+
+// Login user
+router.post('/login', async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required',
+      });
+    }
+
+    // Find user by email
+    const userResult = await query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password',
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // In production, use bcrypt.compare() - for demo, simple comparison
+    // Note: password_hash should be hashed with bcrypt in production
+    if (user.password_hash !== password) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password',
+      });
+    }
+
+    // Get user's accounts
+    const accountsResult = await query(
+      'SELECT * FROM accounts WHERE user_id = $1',
+      [user.id]
+    );
+
+    // Get user's transactions (last 50)
+    const transactionsResult = await query(
+      `SELECT t.* FROM transactions t
+       JOIN accounts a ON t.account_id = a.id
+       WHERE a.user_id = $1
+       ORDER BY t.created_at DESC
+       LIMIT 50`,
+      [user.id]
+    );
+
+    // Get user's loans
+    const loansResult = await query(
+      'SELECT * FROM loans WHERE user_id = $1',
+      [user.id]
+    );
+
+    // Get user's cards
+    const cardsResult = await query(
+      `SELECT c.* FROM cards c
+       JOIN accounts a ON c.account_id = a.id
+       WHERE a.user_id = $1`,
+      [user.id]
+    );
+
+    // Get user's support tickets
+    const ticketsResult = await query(
+      'SELECT * FROM support_tickets WHERE user_id = $1 ORDER BY created_at DESC',
+      [user.id]
+    );
+
+    // Create session token (simplified - use JWT in production)
+    const sessionToken = `session_${user.id}_${Date.now()}`;
+
+    // Store session (optional - for session management)
+    try {
+      await query(
+        `INSERT INTO user_sessions (user_id, session_token, expires_at)
+         VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '24 hours')`,
+        [user.id, sessionToken]
+      );
+    } catch (sessionError) {
+      // Session table might not exist, continue anyway
+      console.log('Session storage skipped:', sessionError);
+    }
+
+    // Remove sensitive data
+    delete user.password_hash;
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          ...user,
+          accounts: accountsResult.rows,
+          transactions: transactionsResult.rows,
+          loans: loansResult.rows,
+          cards: cardsResult.rows,
+          tickets: ticketsResult.rows,
+        },
+        token: sessionToken,
+      },
+      message: 'Login successful',
+    });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Login failed',
+    });
+  }
+});
+
+// Register new user
+router.post('/register', async (req: Request, res: Response) => {
+  try {
+    const { full_name, email, password, phone_number } = req.body;
+
+    if (!full_name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Full name, email, and password are required',
+      });
+    }
+
+    // Check if email exists
+    const existingUser = await query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rowCount && existingUser.rowCount > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'Email already registered',
+      });
+    }
+
+    // Create user (in production, hash password with bcrypt)
+    const userResult = await query(
+      `INSERT INTO users (full_name, email, password_hash, phone_number, kyc_status, role)
+       VALUES ($1, $2, $3, $4, 'PENDING', 'USER')
+       RETURNING id, full_name, email, role, kyc_status, created_at`,
+      [full_name, email, password, phone_number || null]
+    );
+
+    const newUser = userResult.rows[0];
+
+    res.status(201).json({
+      success: true,
+      data: newUser,
+      message: 'Registration successful. Please complete KYC verification.',
+    });
+  } catch (error) {
+    console.error('Error during registration:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Registration failed',
+    });
+  }
+});
+
+// Logout user
+router.post('/logout', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (token) {
+      // Invalidate session
+      await query(
+        'DELETE FROM user_sessions WHERE session_token = $1',
+        [token]
+      ).catch(() => {
+        // Session table might not exist
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    console.error('Error during logout:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Logout failed',
+    });
+  }
+});
+
+// Get user by email (for login check)
+router.get('/email/:email', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.params;
+    const result = await query(
+      'SELECT id, full_name, email, role, kyc_status FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Error fetching user by email:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch user',
+    });
+  }
+});
+
+// Complete KYC and create account
+router.post('/:id/complete-kyc', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { address, phone_number } = req.body;
+
+    // Update user's KYC status
+    const userResult = await query(
+      `UPDATE users 
+       SET kyc_status = 'VERIFIED',
+           address = COALESCE($2, address),
+           phone_number = COALESCE($3, phone_number),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id, address, phone_number]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    // Generate account number (10 digits)
+    const accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+
+    // Create savings account for user
+    const accountResult = await query(
+      `INSERT INTO accounts (user_id, account_number, account_type, balance)
+       VALUES ($1, $2, 'SAVINGS', 0)
+       RETURNING *`,
+      [id, accountNumber]
+    );
+
+    const user = userResult.rows[0];
+    delete user.password_hash;
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        account: accountResult.rows[0],
+      },
+      message: 'KYC completed successfully. Your account has been created.',
+    });
+  } catch (error) {
+    console.error('Error completing KYC:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to complete KYC',
+    });
+  }
+});
+
+// Update user password
+router.patch('/:id/password', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Current password and new password are required',
+      });
+    }
+
+    // Verify current password
+    const userResult = await query(
+      'SELECT password_hash FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    if (userResult.rows[0].password_hash !== current_password) {
+      return res.status(401).json({
+        success: false,
+        error: 'Current password is incorrect',
+      });
+    }
+
+    // Update password (in production, hash with bcrypt)
+    await query(
+      `UPDATE users SET password_hash = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [id, new_password]
+    );
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating password:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update password',
+    });
+  }
+});
+
+// Update notification preferences
+router.patch('/:id/notifications', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { notification_preferences } = req.body;
+
+    const result = await query(
+      `UPDATE users 
+       SET notification_preferences = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, notification_preferences`,
+      [id, JSON.stringify(notification_preferences)]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+      message: 'Notification preferences updated',
+    });
+  } catch (error) {
+    console.error('Error updating notification preferences:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update preferences',
+    });
+  }
+});
+
 export default router;
