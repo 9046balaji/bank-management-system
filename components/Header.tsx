@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { UserState, View } from '../types';
 
 interface HeaderProps {
@@ -11,6 +11,18 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ user, isDarkMode, toggleDarkMode, onLogout, setView }) => {
+  const [showMenu, setShowMenu] = useState(false);
+
+  const handleProfileClick = () => {
+    setShowMenu(false);
+    setView(View.PROFILE);
+  };
+
+  const handleLogoutClick = () => {
+    setShowMenu(false);
+    onLogout();
+  };
+
   return (
     <header className="h-16 bg-surface-light dark:bg-surface-dark border-b border-slate-200 dark:border-slate-800 px-6 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md bg-opacity-80 dark:bg-opacity-80">
       <div className="flex items-center gap-2">
@@ -39,21 +51,36 @@ const Header: React.FC<HeaderProps> = ({ user, isDarkMode, toggleDarkMode, onLog
             <p className="text-xs font-bold">{user.name}</p>
             <p className="text-[10px] text-slate-500 font-mono tracking-tighter">ACC: {user.accountNumber}</p>
           </div>
-          <div className="relative group">
+          <div className="relative">
             <img 
               src={user.avatar} 
               alt="Avatar" 
-              className="size-10 rounded-full border-2 border-white dark:border-slate-700 shadow-sm cursor-pointer"
-              onClick={() => setView(View.PROFILE)}
+              className="size-10 rounded-full border-2 border-white dark:border-slate-700 shadow-sm cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setShowMenu(!showMenu)}
             />
-            <div className="absolute right-0 top-full mt-2 w-48 bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200">
-              <button onClick={() => setView(View.PROFILE)} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm">settings</span> Settings
-              </button>
-              <button onClick={onLogout} className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-semibold text-red-500 flex items-center gap-2">
-                <span className="material-symbols-outlined text-sm">logout</span> Logout
-              </button>
-            </div>
+            {showMenu && (
+              <>
+                {/* Backdrop to close menu when clicking outside */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-48 bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <button 
+                    onClick={handleProfileClick} 
+                    className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">settings</span> Settings
+                  </button>
+                  <button 
+                    onClick={handleLogoutClick} 
+                    className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-semibold text-red-500 flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">logout</span> Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

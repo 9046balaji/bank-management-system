@@ -115,6 +115,13 @@ export const userApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     }),
 
+  // Validate session (for page refresh)
+  validateSession: (token: string) =>
+    request('/users/validate-session', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+
   // Complete KYC
   completeKyc: (id: string, data: { address?: string; phone_number?: string }) =>
     request(`/users/${id}/complete-kyc`, {
@@ -245,6 +252,9 @@ export const cardApi = {
   // Get cards by account ID
   getByAccountId: (accountId: string) => request(`/cards/account/${accountId}`),
 
+  // Get cards by user ID
+  getByUserId: (userId: string) => request(`/cards/user/${userId}`),
+
   // Create new card
   create: (cardData: {
     account_id: string;
@@ -332,6 +342,9 @@ export const loanApi = {
 
   // Get loan applications
   getApplications: () => request('/loans/applications/all'),
+
+  // Get loan applications by user ID
+  getUserApplications: (userId: string) => request(`/loans/applications/user/${userId}`),
 
   // Create loan application
   applyForLoan: (applicationData: {
@@ -438,6 +451,50 @@ export const supportApi = {
   // Get FAQs
   getFaqs: (category?: string) =>
     request(`/support/faqs${category ? `?category=${category}` : ''}`),
+
+  // Chat with AI banking assistant (Ollama)
+  chat: (data: { message: string; userId?: string; history?: { role: string; content: string }[] }) =>
+    request('/support/chat', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // ==================== FEEDBACK ====================
+  
+  // Submit feedback
+  submitFeedback: (feedbackData: {
+    user_id: string;
+    rating: number;
+    category: 'SERVICE' | 'APP' | 'FEATURE' | 'OTHER';
+    comment?: string;
+  }) =>
+    request('/support/feedback', {
+      method: 'POST',
+      body: JSON.stringify(feedbackData),
+    }),
+
+  // Get user's feedback history
+  getUserFeedback: (userId: string) =>
+    request(`/support/feedback/user/${userId}`),
+
+  // Get all feedback (admin)
+  getAllFeedback: (status?: 'resolved' | 'unresolved', category?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (category) params.append('category', category);
+    const queryString = params.toString();
+    return request(`/support/feedback/all${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Admin respond to feedback
+  respondToFeedback: (id: string, adminResponse: string, isResolved: boolean) =>
+    request(`/support/feedback/${id}/respond`, {
+      method: 'PATCH',
+      body: JSON.stringify({ admin_response: adminResponse, is_resolved: isResolved }),
+    }),
+
+  // Get feedback statistics (admin)
+  getFeedbackStats: () => request('/support/feedback/stats'),
 };
 
 // ==========================================

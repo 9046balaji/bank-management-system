@@ -72,6 +72,36 @@ export interface NotificationPreferences {
   };
 }
 
+export interface Account {
+  id: string;
+  account_number: string;
+  account_type: string;
+  balance: number;
+}
+
+export interface Card {
+  id: string;
+  card_number: string;
+  card_holder_name: string;
+  expiry_date: string;
+  card_type: string;
+  status: 'ACTIVE' | 'BLOCKED' | 'FROZEN';
+  daily_limit: number;
+  is_international_enabled: boolean;
+  is_online_enabled: boolean;
+}
+
+export interface FraudAlert {
+  id: string;
+  transaction_id: string;
+  amount: number;
+  merchant: string;
+  location: string;
+  timestamp: string;
+  risk_score: number;
+  status: 'PENDING' | 'CONFIRMED' | 'DISMISSED';
+}
+
 export interface UserState {
   id?: string;
   name: string;
@@ -82,9 +112,12 @@ export interface UserState {
   role: UserRole;
   avatar: string;
   isKycCompleted: boolean;
+  accounts: Account[];
+  cards: Card[];
   transactions: Transaction[];
   loans: Loan[];
   tickets: Ticket[];
+  fraudAlerts: FraudAlert[];
   notificationPreferences: NotificationPreferences;
   settings: {
     maintenanceMode: boolean;

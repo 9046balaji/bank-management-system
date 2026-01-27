@@ -10,6 +10,9 @@ export const INITIAL_STATE: UserState = {
   role: UserRole.USER,
   avatar: "https://picsum.photos/seed/alex/200",
   isKycCompleted: true,
+  accounts: [],
+  cards: [],
+  fraudAlerts: [],
   transactions: [
     { id: 'tx1', type: 'DEPOSIT', amount: 5000, description: 'HDFC Deposit', date: '2023-10-24T10:23:00', status: 'COMPLETED' },
     { id: 'tx2', type: 'WITHDRAWAL', amount: 2000, description: 'ATM Withdrawal', date: '2023-10-23T18:45:00', status: 'COMPLETED' },
