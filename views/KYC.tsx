@@ -14,6 +14,12 @@ interface KycResponse {
     id: string;
     account_number: string;
     balance: number;
+    account_type?: string;
+  };
+  card?: {
+    id: string;
+    card_number_masked: string;
+    status: string;
   };
 }
 
@@ -30,7 +36,7 @@ const KYC: React.FC<KYCProps> = ({ userId, onComplete }) => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdAccount, setCreatedAccount] = useState<{ account_number: string } | null>(null);
+  const [createdAccount, setCreatedAccount] = useState<{ id: string; account_number: string; balance: number; account_type?: string } | null>(null);
 
   const handleFinish = async () => {
     setLoading(true);
@@ -46,7 +52,12 @@ const KYC: React.FC<KYCProps> = ({ userId, onComplete }) => {
 
         if (response.success && response.data) {
           const data = response.data as KycResponse;
-          setCreatedAccount({ account_number: data.account.account_number });
+          setCreatedAccount({ 
+            id: data.account.id,
+            account_number: data.account.account_number,
+            balance: data.account.balance || 0,
+            account_type: data.account.account_type || 'SAVINGS'
+          });
           setIsSuccess(true);
         } else {
           setError(response.error || 'Failed to complete KYC');
@@ -54,7 +65,12 @@ const KYC: React.FC<KYCProps> = ({ userId, onComplete }) => {
       } else {
         // Fallback for demo mode without userId
         const accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-        setCreatedAccount({ account_number: accountNumber });
+        setCreatedAccount({ 
+          id: `demo-${Date.now()}`,
+          account_number: accountNumber,
+          balance: 0,
+          account_type: 'SAVINGS'
+        });
         setIsSuccess(true);
       }
     } catch (err) {
@@ -95,7 +111,7 @@ const KYC: React.FC<KYCProps> = ({ userId, onComplete }) => {
               <p className="text-2xl font-mono font-bold tracking-widest text-primary">{createdAccount.account_number}</p>
             </div>
             <button 
-              onClick={() => onComplete({ accountNumber: createdAccount.account_number })}
+              onClick={() => onComplete({ accountNumber: createdAccount.account_number, account: createdAccount })}
               className="w-full h-12 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
             >
               Go to Dashboard <span className="material-symbols-outlined">dashboard</span>

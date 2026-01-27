@@ -10,9 +10,12 @@ interface LoansProps {
 
 interface LoanData {
   id: string;
-  loan_type: string;
-  principal_amount: number;
-  remaining_amount: number;
+  loan_type?: string;
+  type?: string;
+  principal_amount?: number;
+  loan_amount?: number;
+  remaining_amount?: number;
+  outstanding_balance?: number;
   interest_rate: number;
   term_months: number;
   start_date: string;
@@ -22,9 +25,18 @@ interface LoanData {
   paid_emis: number;
 }
 
+interface LoanApplication {
+  id: string;
+  requested_amount: number;
+  status: string;
+  applied_at: string;
+  ai_risk_score?: number;
+}
+
 const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
   const [view, setView] = useState<'TRACKING' | 'APPLICATION' | 'CALCULATOR'>('TRACKING');
   const [loans, setLoans] = useState<Loan[]>(user.loans);
+  const [pendingApps, setPendingApps] = useState<LoanApplication[]>([]);
   const [loading, setLoading] = useState(false);
   const [payingLoanId, setPayingLoanId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -48,14 +60,15 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
       if (!user.id) return;
       setLoading(true);
       try {
+        // Fetch active loans
         const response = await loanApi.getByUserId(user.id);
         if (response.success && response.data) {
           const loanData = response.data as LoanData[];
           setLoans(loanData.map((loan: LoanData) => ({
             id: loan.id,
-            type: loan.loan_type || 'Personal',
-            amount: parseFloat(String(loan.principal_amount)),
-            remaining: parseFloat(String(loan.remaining_amount || loan.principal_amount)),
+            type: loan.loan_type || loan.type || 'Personal',
+            amount: parseFloat(String(loan.loan_amount || loan.principal_amount || 0)),
+            remaining: parseFloat(String(loan.outstanding_balance || loan.remaining_amount || loan.loan_amount || 0)),
             interestRate: parseFloat(String(loan.interest_rate)),
             termMonths: loan.term_months,
             startDate: loan.start_date,
@@ -63,6 +76,14 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
             emiAmount: parseFloat(String(loan.emi_amount)) || 0,
             status: (loan.status as 'ACTIVE' | 'PENDING' | 'REPAID') || 'ACTIVE',
           })));
+        }
+
+        // Fetch pending loan applications
+        const appsResponse = await loanApi.getUserApplications(user.id);
+        if (appsResponse.success && appsResponse.data) {
+          const apps = appsResponse.data as LoanApplication[];
+          // Filter to only show PENDING applications
+          setPendingApps(apps.filter(app => app.status === 'PENDING'));
         }
       } catch (error) {
         console.error('Error fetching loans:', error);
@@ -205,9 +226,18 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
   // Pay EMI
   const handlePayEmi = async (loan: Loan) => {
     setPayingLoanId(loan.id);
+    
+    // Get account ID from user's accounts
+    const accountId = user.accounts?.[0]?.id;
+    if (!accountId) {
+      alert('No account found to pay from. Please ensure you have an active account.');
+      setPayingLoanId(null);
+      return;
+    }
+    
     try {
       // Call backend to pay EMI
-      const response = await loanApi.payEmi(loan.id, user.id || '', loan.emiAmount);
+      const response = await loanApi.payEmi(loan.id, accountId, loan.emiAmount);
       
       if (response.success) {
         // Update local state
@@ -219,9 +249,9 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
           const loanData = loansResponse.data as LoanData[];
           setLoans(loanData.map((l: LoanData) => ({
             id: l.id,
-            type: l.loan_type || 'Personal',
-            amount: parseFloat(String(l.principal_amount)),
-            remaining: parseFloat(String(l.remaining_amount || l.principal_amount)),
+            type: l.loan_type || l.type || 'Personal',
+            amount: parseFloat(String(l.loan_amount || l.principal_amount || 0)),
+            remaining: parseFloat(String(l.outstanding_balance || l.remaining_amount || 0)),
             interestRate: parseFloat(String(l.interest_rate)),
             termMonths: l.term_months,
             startDate: l.start_date,
@@ -316,20 +346,66 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
              <div className="flex items-center justify-center py-12">
                <span className="material-symbols-outlined animate-spin text-4xl text-primary">refresh</span>
              </div>
-           ) : loans.length === 0 ? (
-             <div className="bg-surface-light dark:bg-surface-dark p-12 rounded-3xl border border-slate-100 dark:border-slate-800 text-center">
-               <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">credit_score</span>
-               <h3 className="text-xl font-bold mb-2">No Active Loans</h3>
-               <p className="text-slate-500 mb-6">You don't have any active loans. Apply for a new loan to get started.</p>
-               <button
-                 onClick={() => setView('APPLICATION')}
-                 className="px-8 h-12 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20"
-               >
-                 Apply for Loan
-               </button>
-             </div>
            ) : (
-             loans.map(loan => (
+             <>
+               {/* Pending Applications Section */}
+               {pendingApps.length > 0 && (
+                 <div className="space-y-4">
+                   <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest flex items-center gap-2">
+                     <span className="material-symbols-outlined text-yellow-500 text-sm">pending</span>
+                     Pending Applications
+                   </h3>
+                   <div className="grid gap-4">
+                     {pendingApps.map(app => (
+                       <div key={app.id} className="bg-yellow-50 dark:bg-yellow-900/10 p-5 rounded-2xl border border-yellow-200 dark:border-yellow-900/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                         <div className="flex items-center gap-4">
+                           <div className="size-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
+                             <span className="material-symbols-outlined text-yellow-600">hourglass_top</span>
+                           </div>
+                           <div>
+                             <p className="font-bold text-slate-900 dark:text-white">Application #{app.id.slice(0, 8)}</p>
+                             <p className="text-sm text-slate-500">
+                               Requested: <span className="font-bold text-primary">${parseFloat(String(app.requested_amount)).toLocaleString()}</span>
+                               <span className="mx-2">•</span>
+                               {new Date(app.applied_at).toLocaleDateString()}
+                             </p>
+                             {app.ai_risk_score && (
+                               <p className="text-xs text-slate-400 mt-1">AI Score: {app.ai_risk_score}%</p>
+                             )}
+                           </div>
+                         </div>
+                         <span className="bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                           <span className="material-symbols-outlined text-sm">schedule</span>
+                           Pending Review
+                         </span>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+
+               {/* Active Loans Section */}
+               {loans.length === 0 && pendingApps.length === 0 ? (
+                 <div className="bg-surface-light dark:bg-surface-dark p-12 rounded-3xl border border-slate-100 dark:border-slate-800 text-center">
+                   <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">credit_score</span>
+                   <h3 className="text-xl font-bold mb-2">No Active Loans</h3>
+                   <p className="text-slate-500 mb-6">You don't have any active loans. Apply for a new loan to get started.</p>
+                   <button
+                     onClick={() => setView('APPLICATION')}
+                     className="px-8 h-12 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20"
+                   >
+                     Apply for Loan
+                   </button>
+                 </div>
+               ) : loans.length > 0 && (
+                 <>
+                   {pendingApps.length > 0 && (
+                     <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest flex items-center gap-2 mt-4">
+                       <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                       Active Loans
+                     </h3>
+                   )}
+                   {loans.map(loan => (
                <div key={loan.id} className="bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm grid grid-cols-1 lg:grid-cols-3 gap-8 relative overflow-hidden">
                   <div className="lg:col-span-2 space-y-8 relative z-10">
                      <div className="flex justify-between items-start">
@@ -399,7 +475,10 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
                      </div>
                   </div>
                </div>
-             ))
+             ))}
+                 </>
+               )}
+             </>
            )}
         </div>
       )}

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserState } from '../types';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
 import { analyticsApi } from '../src/services/api';
 
 interface AnalyticsProps {
@@ -26,6 +26,19 @@ interface NetWorthData {
   growth: number;
 }
 
+interface ChannelSpendingData {
+  name: string;
+  UPI: number;
+  ATM: number;
+  NetBanking: number;
+}
+
+interface SpendingCategoryData {
+  name: string;
+  value: number;
+  color: string;
+}
+
 const Analytics: React.FC<AnalyticsProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [trendData, setTrendData] = useState<TrendData[]>([
@@ -47,7 +60,27 @@ const Analytics: React.FC<AnalyticsProps> = ({ user }) => {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [exporting, setExporting] = useState(false);
 
+  // Channel-wise spending data (UPI, ATM, Net Banking)
+  const [channelSpending, setChannelSpending] = useState<ChannelSpendingData[]>([
+    { name: 'Jan', UPI: 4200, ATM: 2400, NetBanking: 1800 },
+    { name: 'Feb', UPI: 3800, ATM: 1900, NetBanking: 2200 },
+    { name: 'Mar', UPI: 5100, ATM: 2800, NetBanking: 1500 },
+    { name: 'Apr', UPI: 4600, ATM: 2100, NetBanking: 2800 },
+    { name: 'May', UPI: 5500, ATM: 3200, NetBanking: 2100 },
+    { name: 'Jun', UPI: 4900, ATM: 2600, NetBanking: 2400 },
+  ]);
+
+  // Spending categories (Shopping, Cash/ATM, Other)
+  const [spendingCategories, setSpendingCategories] = useState<SpendingCategoryData[]>([
+    { name: 'Shopping', value: 12500, color: '#135bec' },
+    { name: 'Cash/ATM', value: 8200, color: '#10b981' },
+    { name: 'Bills & Utilities', value: 4500, color: '#f59e0b' },
+    { name: 'Food & Dining', value: 3800, color: '#ef4444' },
+    { name: 'Other', value: 2900, color: '#8b5cf6' },
+  ]);
+
   const COLORS = ['#135bec', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+  const CHANNEL_COLORS = { UPI: '#135bec', ATM: '#10b981', NetBanking: '#f59e0b' };
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -274,6 +307,87 @@ const Analytics: React.FC<AnalyticsProps> = ({ user }) => {
                </div>
              </div>
            )}
+
+           {/* Channel-wise Spending Bar Chart (UPI, ATM, Net Banking) */}
+           <div className="lg:col-span-2 bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+             <h3 className="text-xl font-bold mb-2">Channel-wise Spending</h3>
+             <p className="text-sm text-slate-500 mb-6">Compare your spending across UPI, ATM, and Net Banking</p>
+             <div className="h-72">
+               <ResponsiveContainer width="100%" height="100%">
+                 <BarChart data={channelSpending} barGap={4}>
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600, fill: '#64748b' }} />
+                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600, fill: '#64748b' }} tickFormatter={(value) => `$${(value/1000).toFixed(0)}k`} />
+                   <Tooltip 
+                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                     formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                   />
+                   <Legend 
+                     wrapperStyle={{ paddingTop: '20px' }}
+                     formatter={(value) => <span className="font-bold text-sm">{value}</span>}
+                   />
+                   <Bar dataKey="UPI" fill="#135bec" radius={[4, 4, 0, 0]} name="UPI" />
+                   <Bar dataKey="ATM" fill="#10b981" radius={[4, 4, 0, 0]} name="ATM" />
+                   <Bar dataKey="NetBanking" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Net Banking" />
+                 </BarChart>
+               </ResponsiveContainer>
+             </div>
+             <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+               <div className="text-center">
+                 <p className="text-xs font-bold text-slate-400 uppercase mb-1">UPI Total</p>
+                 <p className="text-lg font-bold text-primary">${channelSpending.reduce((sum, d) => sum + d.UPI, 0).toLocaleString()}</p>
+               </div>
+               <div className="text-center">
+                 <p className="text-xs font-bold text-slate-400 uppercase mb-1">ATM Total</p>
+                 <p className="text-lg font-bold text-emerald-500">${channelSpending.reduce((sum, d) => sum + d.ATM, 0).toLocaleString()}</p>
+               </div>
+               <div className="text-center">
+                 <p className="text-xs font-bold text-slate-400 uppercase mb-1">Net Banking</p>
+                 <p className="text-lg font-bold text-amber-500">${channelSpending.reduce((sum, d) => sum + d.NetBanking, 0).toLocaleString()}</p>
+               </div>
+             </div>
+           </div>
+
+           {/* Spending Categories Pie Chart (Shopping, Cash/ATM, Other) */}
+           <div className="bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+             <h3 className="text-xl font-bold mb-2">Spending Breakdown</h3>
+             <p className="text-sm text-slate-500 mb-6">Shopping, Cash, Bills & More</p>
+             <div className="h-56 relative">
+               <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                   <Pie
+                     data={spendingCategories}
+                     cx="50%"
+                     cy="50%"
+                     innerRadius={50}
+                     outerRadius={75}
+                     paddingAngle={3}
+                     dataKey="value"
+                   >
+                     {spendingCategories.map((entry, index) => (
+                       <Cell key={`cell-${index}`} fill={entry.color} />
+                     ))}
+                   </Pie>
+                   <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+                 </PieChart>
+               </ResponsiveContainer>
+               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                 <span className="text-xs font-bold text-slate-400">Total</span>
+                 <span className="text-xl font-black">${(spendingCategories.reduce((sum, c) => sum + c.value, 0) / 1000).toFixed(1)}k</span>
+               </div>
+             </div>
+             <div className="space-y-2 mt-4">
+               {spendingCategories.map((cat, index) => (
+                 <div key={index} className="flex items-center justify-between">
+                   <div className="flex items-center gap-2">
+                     <div className="size-2.5 rounded-full" style={{ backgroundColor: cat.color }}></div>
+                     <span className="text-sm font-medium">{cat.name}</span>
+                   </div>
+                   <span className="text-sm font-bold">${cat.value.toLocaleString()}</span>
+                 </div>
+               ))}
+             </div>
+           </div>
         </div>
       )}
     </div>

@@ -17,6 +17,10 @@ const ManageFunds: React.FC<ManageFundsProps> = ({ user, onUpdate }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Check if user has an account
+  const accountId = user.accounts?.[0]?.id;
+  const hasAccount = !!accountId;
+
   // Timer countdown for ATM code
   useEffect(() => {
     if (timer > 0) {
@@ -48,9 +52,8 @@ const ManageFunds: React.FC<ManageFundsProps> = ({ user, onUpdate }) => {
     setSuccess(null);
 
     try {
-      const accountId = user.accounts[0]?.id;
       if (!accountId) {
-        setError('No account found');
+        setError('No account found. Please complete KYC to access this feature.');
         return;
       }
 
@@ -86,9 +89,8 @@ const ManageFunds: React.FC<ManageFundsProps> = ({ user, onUpdate }) => {
     setSuccess(null);
 
     try {
-      const accountId = user.accounts[0]?.id;
       if (!accountId) {
-        setError('No account found');
+        setError('No account found. Please complete KYC to access this feature.');
         return;
       }
 
@@ -126,6 +128,25 @@ const ManageFunds: React.FC<ManageFundsProps> = ({ user, onUpdate }) => {
         </div>
       </div>
 
+      {/* No Account State */}
+      {!hasAccount && (
+        <div className="bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="p-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-center">
+            <span className="material-symbols-outlined text-5xl text-red-500 mb-4">account_balance_wallet</span>
+            <h3 className="font-bold text-xl text-red-700 dark:text-red-400 mb-2">No Active Account</h3>
+            <p className="text-sm text-red-600 dark:text-red-300 mb-4">
+              You need an active checking or savings account to deposit or withdraw funds. 
+              Please complete your KYC verification or contact support.
+            </p>
+            <button className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm transition-all">
+              Complete KYC Setup
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hasAccount && (
+        <>
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl flex items-center gap-3">
           <span className="material-symbols-outlined">error</span>
@@ -294,6 +315,8 @@ const ManageFunds: React.FC<ManageFundsProps> = ({ user, onUpdate }) => {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

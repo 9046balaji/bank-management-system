@@ -2,11 +2,23 @@
 import React, { useState, useEffect } from 'react';
 import { UserState, View, Transaction } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { analyticsApi, transactionApi } from '../src/services/api';
+import { analyticsApi, transactionApi, cardApi } from '../src/services/api';
 
 interface DashboardProps {
   user: UserState;
   setView: (v: View) => void;
+}
+
+interface FraudAlert {
+  id: string;
+  type: 'suspicious_transaction' | 'unusual_location' | 'multiple_attempts' | 'large_amount';
+  title: string;
+  description: string;
+  amount?: number;
+  location?: string;
+  timestamp: Date;
+  severity: 'high' | 'medium' | 'low';
+  cardLast4?: string;
 }
 
 interface ChartDataItem {
@@ -19,6 +31,116 @@ interface DashboardStats {
   monthlyExpense: number;
   totalSpending: number;
 }
+
+// Fraud Alert Banner Component
+const FraudAlertBanner: React.FC<{
+  alert: FraudAlert;
+  onBlockCard: () => void;
+  onDismiss: () => void;
+  blocking: boolean;
+}> = ({ alert, onBlockCard, onDismiss, blocking }) => {
+  const getSeverityColor = () => {
+    switch (alert.severity) {
+      case 'high': return 'from-red-600 to-red-700';
+      case 'medium': return 'from-orange-500 to-orange-600';
+      default: return 'from-yellow-500 to-yellow-600';
+    }
+  };
+
+  const getIcon = () => {
+    switch (alert.type) {
+      case 'suspicious_transaction': return 'warning';
+      case 'unusual_location': return 'location_off';
+      case 'multiple_attempts': return 'sync_problem';
+      case 'large_amount': return 'payments';
+      default: return 'security';
+    }
+  };
+
+  return (
+    <div className={`bg-gradient-to-r ${getSeverityColor()} rounded-2xl p-6 text-white shadow-xl animate-pulse-slow relative overflow-hidden`}>
+      {/* Animated background pattern */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute -top-4 -right-4 w-32 h-32 bg-white rounded-full animate-ping"></div>
+        <div className="absolute bottom-2 left-1/4 w-16 h-16 bg-white rounded-full animate-pulse"></div>
+      </div>
+      
+      <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="size-14 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0 animate-bounce">
+            <span className="material-symbols-outlined text-3xl">{getIcon()}</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider">
+                🚨 {alert.severity} Priority
+              </span>
+              <span className="text-xs opacity-75">
+                {alert.timestamp.toLocaleTimeString()}
+              </span>
+            </div>
+            <h3 className="text-xl font-black mb-1">{alert.title}</h3>
+            <p className="text-white/90 text-sm">{alert.description}</p>
+            {alert.amount && (
+              <p className="mt-2 font-bold">
+                Amount: <span className="text-2xl">${alert.amount.toLocaleString()}</span>
+                {alert.cardLast4 && <span className="ml-2 opacity-75">• Card ending in {alert.cardLast4}</span>}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex gap-3 w-full md:w-auto">
+          <button
+            onClick={onDismiss}
+            className="flex-1 md:flex-none px-6 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+            Dismiss
+          </button>
+          <button
+            onClick={onBlockCard}
+            disabled={blocking}
+            className="flex-1 md:flex-none px-6 py-3 bg-white text-red-600 hover:bg-red-50 rounded-xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {blocking ? (
+              <>
+                <span className="material-symbols-outlined text-sm animate-spin">refresh</span>
+                Blocking...
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-sm">block</span>
+                Block Card Now
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Toast notification component
+const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+  const icon = type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info';
+
+  return (
+    <div className={`fixed top-4 right-4 z-[100] ${bgColor} text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-in`}>
+      <span className="material-symbols-outlined">{icon}</span>
+      <span className="font-medium">{message}</span>
+      <button onClick={onClose} className="ml-2 hover:opacity-70">
+        <span className="material-symbols-outlined text-sm">close</span>
+      </button>
+    </div>
+  );
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
   const [filterType, setFilterType] = useState<'ALL' | Transaction['type']>('ALL');
@@ -35,6 +157,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
   });
   const [transactions, setTransactions] = useState<Transaction[]>(user.transactions);
   const [loading, setLoading] = useState(false);
+  
+  // Fraud Alert State
+  const [fraudAlerts, setFraudAlerts] = useState<FraudAlert[]>([]);
+  const [blockingCard, setBlockingCard] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const COLORS = ['#135bec', '#10b981', '#f59e0b'];
 
@@ -90,6 +217,84 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
     setTransactions(user.transactions);
   }, [user.transactions]);
 
+  // Simulate AI-triggered fraud detection (for hackathon demo)
+  useEffect(() => {
+    // Check for suspicious patterns in transactions
+    const detectFraud = () => {
+      const cardLast4 = user.cards?.[0]?.card_number?.slice(-4) || '4402';
+      
+      // Demo: Show fraud alert after 5 seconds on dashboard
+      const demoTimer = setTimeout(() => {
+        // Only show if no existing alerts
+        if (fraudAlerts.length === 0) {
+          const demoAlert: FraudAlert = {
+            id: `fraud-${Date.now()}`,
+            type: 'suspicious_transaction',
+            title: '🚨 Suspicious Transaction Detected!',
+            description: 'Our AI has detected an unusual transaction pattern. A purchase attempt was made from an unfamiliar location.',
+            amount: 2499.99,
+            location: 'Unknown Location - Eastern Europe',
+            timestamp: new Date(),
+            severity: 'high',
+            cardLast4,
+          };
+          setFraudAlerts([demoAlert]);
+        }
+      }, 8000);
+
+      return () => clearTimeout(demoTimer);
+    };
+
+    // Only trigger fraud detection in demo mode
+    if (user.id) {
+      detectFraud();
+    }
+  }, [user.id, user.cards]);
+
+  // Handle block card from fraud alert
+  const handleBlockCardFromAlert = async (alertId: string) => {
+    // Check if user has any cards to block
+    if (!user.cards?.length) {
+      setToast({
+        message: 'No card linked to your account. Please add a card first.',
+        type: 'error'
+      });
+      // Remove the alert since there's no card to block
+      setFraudAlerts(prev => prev.filter(a => a.id !== alertId));
+      return;
+    }
+
+    setBlockingCard(true);
+    try {
+      // Get user's primary card
+      const cardId = user.cards[0].id;
+      await cardApi.reportLost(cardId, 'suspicious_activity');
+      
+      // Remove the alert
+      setFraudAlerts(prev => prev.filter(a => a.id !== alertId));
+      setToast({
+        message: '✅ Card has been blocked successfully! A new card will be issued.',
+        type: 'success'
+      });
+    } catch (error) {
+      setToast({
+        message: 'Failed to block card. Please try again or contact support.',
+        type: 'error'
+      });
+    } finally {
+      setBlockingCard(false);
+    }
+  };
+
+  // Handle dismiss fraud alert
+  const handleDismissAlert = (alertId: string) => {
+    setFraudAlerts(prev => prev.filter(a => a.id !== alertId));
+    setToast({
+      message: 'Alert dismissed. We\'ll continue monitoring your account.',
+      type: 'info'
+    });
+  };
+
   const getFilteredTransactions = () => {
     let txs = [...transactions];
 
@@ -114,6 +319,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
 
   return (
     <div className="space-y-8 animate-slide-up">
+      {/* Toast Notification */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Fraud Alert Banners */}
+      {fraudAlerts.length > 0 && (
+        <div className="space-y-4">
+          {fraudAlerts.map(alert => (
+            <FraudAlertBanner
+              key={alert.id}
+              alert={alert}
+              onBlockCard={() => handleBlockCardFromAlert(alert.id)}
+              onDismiss={() => handleDismissAlert(alert.id)}
+              blocking={blockingCard}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-black tracking-tight">Welcome back, {user.name.split(' ')[0]}! 👋</h2>
@@ -126,6 +349,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
            <button onClick={() => setView(View.MANAGE_FUNDS)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all rounded-lg font-bold">
              Deposit
            </button>
+        </div>
+      </div>
+
+      {/* Account Details Section */}
+      <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">account_balance</span>
+          Account Details
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Account Holder</p>
+            <p className="text-lg font-bold">{user.name}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Account Number</p>
+            <p className="text-lg font-bold font-mono">{user.accountNumber || 'N/A'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Available Balance</p>
+            <p className="text-lg font-bold text-emerald-600">${user.balance.toLocaleString()}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Active Loan</p>
+            <p className="text-lg font-bold text-amber-600">
+              {user.loans && user.loans.length > 0 
+                ? `$${user.loans.filter(l => l.status === 'APPROVED' || l.status === 'ACTIVE').reduce((sum, l) => sum + l.amount, 0).toLocaleString()}`
+                : 'No Active Loans'}
+            </p>
+          </div>
         </div>
       </div>
 
