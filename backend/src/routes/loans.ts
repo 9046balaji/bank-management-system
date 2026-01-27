@@ -164,6 +164,31 @@ router.get('/applications/all', async (req: Request, res: Response) => {
   }
 });
 
+// Get loan applications by user ID
+router.get('/applications/user/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const result = await query(
+      `SELECT * FROM loan_applications 
+       WHERE user_id = $1 
+       ORDER BY applied_at DESC`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount,
+    });
+  } catch (error) {
+    console.error('Error fetching user loan applications:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch applications',
+    });
+  }
+});
+
 // Create loan application
 router.post('/applications/create', async (req: Request, res: Response) => {
   try {
@@ -316,8 +341,8 @@ router.post('/:id/pay-emi', async (req: Request, res: Response) => {
 
     // Record transaction
     await query(
-      `INSERT INTO transactions (account_id, type, amount, description, recipient_name, status)
-       VALUES ($1, 'Withdrawal', $2, $3, 'Aura Bank Loans', 'Completed')`,
+      `INSERT INTO transactions (account_id, type, amount, description, counterparty_name, status)
+       VALUES ($1, 'LOAN_PAYMENT', $2, $3, 'Aura Bank Loans', 'COMPLETED')`,
       [account_id, amount, `EMI Payment - Loan ${loan.loan_reference_id || id}`]
     );
 
