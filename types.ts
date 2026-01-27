@@ -73,6 +73,7 @@ export interface NotificationPreferences {
 }
 
 export interface UserState {
+  id?: string;
   name: string;
   email: string;
   phone: string;

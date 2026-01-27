@@ -117,6 +117,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     type transaction_type_enum NOT NULL,
     amount DECIMAL(15, 2) NOT NULL,
     description TEXT,
+    category VARCHAR(50) DEFAULT 'Others', -- ML-categorized expense category
+    category_confidence DECIMAL(5, 2) DEFAULT 0, -- Confidence score from ML model
     counterparty_name VARCHAR(100),
     counterparty_account_number VARCHAR(50),
     status transaction_status_enum DEFAULT 'COMPLETED',

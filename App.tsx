@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, UserRole, UserState, Transaction } from './types';
 import { INITIAL_STATE } from './constants';
+import { userApi } from './src/services/api';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Landing from './views/Landing';
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.LANDING);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   // Apply dark mode to body
   useEffect(() => {
@@ -40,27 +42,85 @@ const App: React.FC = () => {
     setUser(prev => ({ ...prev, ...updates }));
   };
 
-  const handleLogin = (email: string) => {
+  const handleLogin = (userData: any) => {
+    // Check if this is a new user from registration
+    if (userData.isNewUser) {
+      // Store minimal user data for KYC flow
+      handleUpdateUser({
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: UserRole.USER,
+        isKycCompleted: false,
+      });
+      setIsAuthenticated(true);
+      setCurrentView(View.KYC);
+      return;
+    }
+
+    // Handle full login with user data from backend
     setIsAuthenticated(true);
-    
-    // Admin login backdoor
-    if (email.toLowerCase() === 'admin@aurabank.com') {
-      handleUpdateUser({ role: UserRole.ADMIN });
+    setAuthToken(userData.token || null);
+
+    // Map backend data to frontend UserState
+    const mappedUser: Partial<UserState> = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role === 'ADMIN' ? UserRole.ADMIN : UserRole.USER,
+      isKycCompleted: userData.kyc_status === 'VERIFIED',
+      balance: userData.balance || 0,
+      accountNumber: userData.accounts?.[0]?.account_number || '',
+      transactions: (userData.transactions || []).map((tx: any) => ({
+        id: tx.id,
+        type: tx.type,
+        amount: parseFloat(tx.amount),
+        description: tx.description || '',
+        counterparty: tx.counterparty_name || '',
+        date: tx.created_at,
+        status: tx.status,
+      })),
+      loans: (userData.loans || []).map((loan: any) => ({
+        id: loan.id,
+        type: loan.loan_type || 'Personal',
+        amount: parseFloat(loan.principal_amount),
+        interest: parseFloat(loan.interest_rate),
+        emiAmount: parseFloat(loan.emi_amount) || 0,
+        paidEmis: loan.paid_emis || 0,
+        totalEmis: loan.term_months || 12,
+        nextEmiDate: loan.next_emi_date || '',
+        status: loan.status,
+      })),
+      tickets: (userData.tickets || []).map((ticket: any) => ({
+        id: ticket.id,
+        subject: ticket.subject,
+        status: ticket.status,
+        date: ticket.created_at,
+        category: ticket.category,
+      })),
+    };
+
+    handleUpdateUser(mappedUser);
+
+    // Navigate based on role and KYC status
+    if (userData.role === 'ADMIN') {
       setCurrentView(View.ADMIN_OVERVIEW);
+    } else if (userData.kyc_status !== 'VERIFIED') {
+      setCurrentView(View.KYC);
     } else {
-      handleUpdateUser({ role: UserRole.USER });
-      // If coming from register/kyc flow check could be done here, 
-      // but simplistic flow:
-      if (!user.isKycCompleted) {
-        setCurrentView(View.KYC);
-      } else {
-        setCurrentView(View.DASHBOARD);
-      }
+      setCurrentView(View.DASHBOARD);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await userApi.logout(authToken || undefined);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
     setIsAuthenticated(false);
+    setAuthToken(null);
     setCurrentView(View.LANDING);
     setUser(INITIAL_STATE);
   };
@@ -89,10 +149,17 @@ const App: React.FC = () => {
 
     // Semi-Protected (Onboarding)
     if (currentView === View.KYC) {
-      return <KYC onComplete={(data) => {
-        handleUpdateUser({ isKycCompleted: true, accountNumber: data.accountNumber });
-        setCurrentView(View.DASHBOARD);
-      }} />;
+      return <KYC 
+        userId={user.id}
+        onComplete={(data) => {
+          handleUpdateUser({ 
+            isKycCompleted: true, 
+            accountNumber: data.accountNumber,
+            balance: 0 
+          });
+          setCurrentView(View.DASHBOARD);
+        }} 
+      />;
     }
 
     // Protected Routes Check

@@ -5,18 +5,28 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "vite",
+    "dev:backend": "cd backend && npx tsx src/index.ts",
+    "dev:ml": "cd model && python ml_api.py",
+    "dev:all": "concurrently -n \"API,WEB\" -c \"bgBlue,bgGreen\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "start": "concurrently -n \"API,WEB\" -c \"bgBlue,bgGreen\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:backend": "cd backend && npm run build",
+    "build:all": "npm run build && npm run build:backend",
+    "preview": "vite preview",
+    "install:all": "npm install && cd backend && npm install",
+    "db:setup": "cd backend && psql -U postgres -d aurabank -f ../database/schema.sql"
   },
   "dependencies": {
-    "react-dom": "^19.2.4",
-    "react": "^19.2.4",
     "@google/genai": "^1.38.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
