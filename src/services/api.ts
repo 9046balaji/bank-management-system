@@ -6,6 +6,9 @@
 // @ts-ignore - Vite provides import.meta.env
 const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:5000/api';
 
+// Session storage key for token
+const SESSION_TOKEN_KEY = 'aura_session_token';
+
 // Generic response type
 interface ApiResponse<T> {
   success: boolean;
@@ -15,23 +18,39 @@ interface ApiResponse<T> {
   count?: number;
 }
 
+// Get auth token from storage
+function getAuthToken(): string | null {
+  return localStorage.getItem(SESSION_TOKEN_KEY);
+}
+
 // Error handling wrapper
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
   const data = await response.json();
   if (!response.ok) {
+    // Handle token expiration
+    if (response.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem(SESSION_TOKEN_KEY);
+    }
     throw new Error(data.error || data.message || 'An error occurred');
   }
   return data;
 }
 
-// Request helper with error handling
+// Request helper with error handling and automatic auth token
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  additionalHeaders: Record<string, string> = {}
 ): Promise<ApiResponse<T>> {
+  const token = getAuthToken();
+  
   const config: RequestInit = {
+    credentials: 'include', // Include cookies for HttpOnly tokens
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...additionalHeaders,
       ...options.headers,
     },
     ...options,
@@ -44,6 +63,24 @@ async function request<T>(
     console.error('API Error:', error);
     throw error;
   }
+}
+
+// Request with idempotency key
+async function requestWithIdempotency<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  idempotencyKey?: string
+): Promise<ApiResponse<T>> {
+  const additionalHeaders: Record<string, string> = {};
+  
+  if (idempotencyKey) {
+    additionalHeaders['Idempotency-Key'] = idempotencyKey;
+  } else {
+    // Generate a key if not provided
+    additionalHeaders['Idempotency-Key'] = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  }
+  
+  return request<T>(endpoint, options, additionalHeaders);
 }
 
 // ==========================================
@@ -225,18 +262,19 @@ export const transactionApi = {
       body: JSON.stringify({ status }),
     }),
 
-  // Transfer between accounts
+  // Transfer between accounts (with idempotency support)
   transfer: (transferData: {
     from_account_id: string;
     to_account_number: string;
     amount: number;
     description?: string;
     pin?: string;
+    idempotency_key?: string;
   }) =>
-    request('/transactions/transfer', {
+    requestWithIdempotency('/transactions/transfer', {
       method: 'POST',
       body: JSON.stringify(transferData),
-    }),
+    }, transferData.idempotency_key),
 };
 
 // ==========================================

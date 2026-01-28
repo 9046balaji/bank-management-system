@@ -45,6 +45,22 @@ export const INITIAL_STATE: UserState = {
     sms: { largeTransaction: true, lowBalance: false, security: true },
     push: { largeTransaction: false, lowBalance: true, security: true },
   },
+  // New fields for enhanced ManageFunds feature
+  linkedBanks: [],
+  pendingDeposits: [],
+  upcomingBills: [
+    { id: 'bill1', name: 'Netflix', amount: 15.99, dueDate: '2023-11-05', category: 'Entertainment' },
+    { id: 'bill2', name: 'Electric Bill', amount: 120.00, dueDate: '2023-11-10', category: 'Utilities' },
+    { id: 'bill3', name: 'Car Insurance', amount: 250.00, dueDate: '2023-11-15', category: 'Insurance' },
+  ],
+  autoTopUp: {
+    enabled: false,
+    threshold: 50,
+    topUpAmount: 100,
+    sourceBank: undefined,
+  },
+  dailyWithdrawalUsed: 350,
+  dailyWithdrawalLimit: 1000,
   settings: {
     maintenanceMode: false,
     currency: 'USD',

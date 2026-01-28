@@ -16,6 +16,15 @@ interface AdminSystemConfigProps {
   onUpdate: (settings: Partial<UserState['settings']>) => void;
 }
 
+// Demo configuration for hackathon
+const DEMO_CONFIG: SystemConfig = {
+  maintenance_mode: false,
+  base_currency: 'INR',
+  savings_rate: 6.5,
+  last_updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  last_updated_by: 'ADMIN_SECURE',
+};
+
 const AdminSystemConfig: React.FC<AdminSystemConfigProps> = ({ user, onUpdate }) => {
   const [config, setConfig] = useState<SystemConfig>({
     maintenance_mode: false,
@@ -28,10 +37,25 @@ const AdminSystemConfig: React.FC<AdminSystemConfigProps> = ({ user, onUpdate })
   const [success, setSuccess] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<SystemConfig | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(0);
 
   useEffect(() => {
-    fetchConfig();
-  }, []);
+    if (demoMode) {
+      loadDemoConfig();
+    } else {
+      fetchConfig();
+    }
+  }, [demoMode]);
+
+  const loadDemoConfig = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setConfig(DEMO_CONFIG);
+      setOriginalConfig(DEMO_CONFIG);
+      setLoading(false);
+    }, 600);
+  };
 
   const fetchConfig = async () => {
     try {
@@ -63,7 +87,37 @@ const AdminSystemConfig: React.FC<AdminSystemConfigProps> = ({ user, onUpdate })
     setSuccess('');
   };
 
+  // Demo mode save with progress animation
+  const handleDemoSave = () => {
+    setSaving(true);
+    setSavingProgress(0);
+    
+    const interval = setInterval(() => {
+      setSavingProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 20;
+      });
+    }, 400);
+
+    setTimeout(() => {
+      setSaving(false);
+      setSavingProgress(0);
+      setSuccess('Configuration saved successfully');
+      setHasChanges(false);
+      setOriginalConfig({ ...config, last_updated_at: new Date().toISOString(), last_updated_by: user.name || 'ADMIN' });
+      setConfig(prev => ({ ...prev, last_updated_at: new Date().toISOString(), last_updated_by: user.name || 'ADMIN' }));
+    }, 2000);
+  };
+
   const handleSave = async () => {
+    if (demoMode) {
+      handleDemoSave();
+      return;
+    }
+    
     try {
       setSaving(true);
       setError('');
@@ -111,6 +165,11 @@ const AdminSystemConfig: React.FC<AdminSystemConfigProps> = ({ user, onUpdate })
     const newValue = !config.maintenance_mode;
     handleConfigChange('maintenance_mode', newValue);
     
+    if (demoMode) {
+      // In demo mode, just update locally
+      return;
+    }
+    
     // Immediately update maintenance mode as it's critical
     try {
       await configApi.update('maintenance_mode', newValue.toString());
@@ -133,10 +192,41 @@ const AdminSystemConfig: React.FC<AdminSystemConfigProps> = ({ user, onUpdate })
 
   return (
     <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-3xl font-black tracking-tight">System Configuration</h2>
-        <p className="text-slate-500">Manage global bank parameters and operational status.</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight">System Configuration</h2>
+          <p className="text-slate-500">Manage global bank parameters and operational status.</p>
+        </div>
+        <button
+          onClick={() => setDemoMode(!demoMode)}
+          className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+            demoMode 
+              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30' 
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+          }`}
+        >
+          <span className="material-symbols-outlined text-sm align-middle mr-1">
+            {demoMode ? 'auto_awesome' : 'cloud_sync'}
+          </span>
+          {demoMode ? 'Demo Mode' : 'Live Data'}
+        </button>
       </div>
+
+      {/* Saving progress bar in demo mode */}
+      {saving && demoMode && (
+        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="material-symbols-outlined text-indigo-500 animate-spin">progress_activity</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-bold">Synchronizing with Core Banking System...</span>
+          </div>
+          <div className="w-full bg-indigo-100 dark:bg-indigo-900/50 rounded-full h-2">
+            <div 
+              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${savingProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Status messages */}
       {error && (

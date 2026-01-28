@@ -7,6 +7,9 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Landing from './views/Landing';
 import Auth from './views/Auth';
+// 3D Auth Page - Set USE_3D_AUTH to true for immersive 3D login experience
+import { Auth3DPage } from './src/components/3d';
+const USE_3D_AUTH = true;
 import KYC from './views/KYC';
 import Dashboard from './views/Dashboard';
 import Transfer from './views/Transfer';
@@ -172,7 +175,7 @@ const App: React.FC = () => {
   const handleLogin = (userData: any) => {
     // Check if this is a new user from registration
     if (userData.isNewUser) {
-      // Store minimal user data for KYC flow
+      // Store user data and redirect to dashboard
       handleUpdateUser({
         id: userData.id,
         name: userData.name,
@@ -181,7 +184,12 @@ const App: React.FC = () => {
         isKycCompleted: false,
       });
       setIsAuthenticated(true);
-      setCurrentView(View.KYC);
+      // Save session token if available
+      if (userData.token) {
+        setAuthToken(userData.token);
+        localStorage.setItem(SESSION_TOKEN_KEY, userData.token);
+      }
+      setCurrentView(View.DASHBOARD);
       return;
     }
 
@@ -259,6 +267,51 @@ const App: React.FC = () => {
     if (currentView === View.LANDING) return <Landing onStart={() => setCurrentView(View.REGISTER)} onLogin={() => setCurrentView(View.LOGIN)} />;
     
     if (currentView === View.LOGIN || currentView === View.REGISTER || currentView === View.FORGOT_PASSWORD) {
+      // Use 3D Auth Page for immersive login experience
+      if (USE_3D_AUTH) {
+        return (
+          <Auth3DPage
+            initialMode={currentView === View.LOGIN ? 'login' : currentView === View.REGISTER ? 'register' : 'forgot'}
+            onLogin={async (email, password) => {
+              try {
+                const response = await userApi.login(email, password);
+                if (response.success && response.data) {
+                  const loginData = response.data as { user: Record<string, unknown>; token: string };
+                  // Pass user data with token for proper session handling
+                  handleLogin({ ...loginData.user, token: loginData.token });
+                } else {
+                  throw new Error(response.error || 'Login failed');
+                }
+              } catch (err) {
+                throw err;
+              }
+            }}
+            onRegister={async (name, email, password) => {
+              try {
+                const response = await userApi.register({
+                  full_name: name,
+                  email,
+                  password,
+                });
+                if (response.success && response.data) {
+                  const userData = response.data as Record<string, unknown>;
+                  handleLogin({ ...userData, isNewUser: true });
+                } else {
+                  throw new Error(response.error || 'Registration failed');
+                }
+              } catch (err) {
+                throw err;
+              }
+            }}
+            onForgotPassword={async (email) => {
+              // For demo purposes, just simulate a successful reset
+              console.log('Password reset requested for:', email);
+              // In a real app, this would call an API endpoint
+            }}
+          />
+        );
+      }
+      // Fallback to standard Auth component
       return <Auth currentView={currentView} setView={setCurrentView} onLogin={handleLogin} />;
     }
 
@@ -302,7 +355,7 @@ const App: React.FC = () => {
     switch (currentView) {
       case View.DASHBOARD: return <Dashboard user={user} setView={setCurrentView} />;
       case View.TRANSFERS: return <Transfer user={user} onTransfer={addTransaction} />;
-      case View.MANAGE_FUNDS: return <ManageFunds user={user} onUpdate={addTransaction} />;
+      case View.MANAGE_FUNDS: return <ManageFunds user={user} onUpdate={addTransaction} onUserUpdate={handleUpdateUser} />;
       case View.MY_CARDS: return <Cards user={user} onUpdate={(settings) => handleUpdateUser({ settings: { ...user.settings, ...settings } })} />;
       case View.LOANS: return <Loans user={user} onPayment={(amount) => addTransaction({ type: 'LOAN_PAYMENT', amount, description: 'EMI Payment' })} />;
       case View.ANALYTICS: return <Analytics user={user} />;

@@ -33,6 +33,21 @@ interface LoanApplication {
   ai_risk_score?: number;
 }
 
+// Demo data for quick form filling
+const DEMO_APPROVE_DATA = {
+  monthlyIncome: 8000,
+  existingDebt: 500,
+  employer: 'Acme Corporation',
+  employmentYears: 5
+};
+
+const DEMO_REJECT_DATA = {
+  monthlyIncome: 3000,
+  existingDebt: 2000,
+  employer: 'Self Employed',
+  employmentYears: 1
+};
+
 const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
   const [view, setView] = useState<'TRACKING' | 'APPLICATION' | 'CALCULATOR'>('TRACKING');
   const [loans, setLoans] = useState<Loan[]>(user.loans);
@@ -44,9 +59,23 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
   // Application State
   const [loanAmount, setLoanAmount] = useState(25000);
   const [term, setTerm] = useState(24);
-  const [aiAnalysis, setAiAnalysis] = useState('Adjust sliders for real-time AI risk analysis.');
-  const [confidence, setConfidence] = useState(85);
+  const [aiAnalysis, setAiAnalysis] = useState('Enter your financial details for AI risk analysis.');
+  const [confidence, setConfidence] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
+  
+  // NEW: Financial details for DTI calculation
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [existingDebt, setExistingDebt] = useState(0);
+  const [employer, setEmployer] = useState('');
+  const [employmentYears, setEmploymentYears] = useState(0);
+  
+  // NEW: Application result state
+  const [applicationResult, setApplicationResult] = useState<{
+    status: 'APPROVED' | 'REJECTED' | null;
+    message: string;
+    dtiRatio: number;
+  } | null>(null);
+  const [processingStep, setProcessingStep] = useState('');
 
   // Calculator State
   const [calcAmount, setCalcAmount] = useState<number>(10000);
@@ -104,90 +133,57 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
     }
   }, [user.loans]);
 
-  // Fetch AI analysis when application parameters change
+  // DTI-based AI analysis when financial details change
   useEffect(() => {
-    if (view === 'APPLICATION') {
-      const fetchAiAnalysis = async () => {
-        setAiLoading(true);
-        try {
-          // Use ML API for loan prediction
-          const mlResponse = await mlApi.predictLoan({
-            Gender: 'Male',
-            Married: 'Yes',
-            Dependents: '0',
-            Education: 'Graduate',
-            Self_Employed: 'No',
-            ApplicantIncome: 8000,
-            CoapplicantIncome: 0,
-            LoanAmount: loanAmount / 1000, // ML model expects in thousands
-            Loan_Amount_Term: term * 30, // Convert months to days
-            Credit_History: 1,
-            Property_Area: 'Urban',
-          });
-
-          if (mlResponse.success) {
-            const data = mlResponse as {
-              success: boolean;
-              is_approved?: boolean;
-              approval_probability?: number;
-              risk_factors?: string[];
-              recommendation?: string;
-            };
-            const probability = data.approval_probability || 0.85;
-            setConfidence(Math.round(probability * 100));
-            
-            if (data.is_approved) {
-              if (probability > 0.9) {
-                setAiAnalysis(`Excellent approval likelihood (${Math.round(probability * 100)}%). ${data.recommendation || 'Your profile meets all criteria.'}`);
-              } else if (probability > 0.75) {
-                setAiAnalysis(`Good approval chances (${Math.round(probability * 100)}%). ${data.recommendation || 'Consider a co-applicant to improve terms.'}`);
-              } else {
-                setAiAnalysis(`Moderate approval likelihood (${Math.round(probability * 100)}%). ${data.risk_factors?.join(', ') || 'Review your credit history.'}`);
-              }
-            } else {
-              setAiAnalysis(`Lower approval probability (${Math.round(probability * 100)}%). ${data.risk_factors?.join(', ') || 'Consider reducing loan amount or improving credit score.'}`);
-            }
-            return;
-          }
-
-          // Fallback to legacy backend AI analysis
-          const response = await loanApi.getAiAnalysis('new', {
-            loan_amount: loanAmount,
-            credit_score: 750,
-            monthly_income: 8000,
-          });
-
-          if (response.success && response.data) {
-            const data = response.data as { risk_score?: number; analysis?: string };
-            setConfidence(data.risk_score || 85);
-            setAiAnalysis(data.analysis || 'Analysis complete.');
-          } else {
-            calculateLocalAnalysis();
-          }
-        } catch (error) {
-          // Fallback to local calculation
-          calculateLocalAnalysis();
-        } finally {
-          setAiLoading(false);
+    if (view === 'APPLICATION' && monthlyIncome > 0) {
+      setAiLoading(true);
+      
+      // Calculate EMI for the loan
+      const monthlyRate = 0.085 / 12; // 8.5% annual rate
+      const emi = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, term)) / (Math.pow(1 + monthlyRate, term) - 1);
+      
+      // Calculate DTI ratio: (Existing Debt + New EMI) / Income
+      const totalMonthlyDebt = existingDebt + emi;
+      const dtiRatio = (totalMonthlyDebt / monthlyIncome) * 100;
+      
+      // Determine approval likelihood based on DTI
+      setTimeout(() => {
+        if (dtiRatio > 50) {
+          setConfidence(Math.max(10, Math.round(100 - dtiRatio)));
+          setAiAnalysis(`⚠️ High Risk: DTI ratio is ${dtiRatio.toFixed(1)}%. Debt payments would exceed 50% of income. Loan will likely be REJECTED. Consider reducing loan amount or increasing income.`);
+        } else if (dtiRatio > 40) {
+          setConfidence(Math.round(70 - (dtiRatio - 40) * 2));
+          setAiAnalysis(`⚡ Moderate Risk: DTI ratio is ${dtiRatio.toFixed(1)}%. Close to the 50% threshold. Consider a lower loan amount for better terms.`);
+        } else if (dtiRatio > 30) {
+          setConfidence(Math.round(85 - (dtiRatio - 30)));
+          setAiAnalysis(`✓ Good Profile: DTI ratio is ${dtiRatio.toFixed(1)}%. Monthly payments are manageable within your income level.`);
+        } else {
+          setConfidence(Math.min(98, Math.round(95 + (30 - dtiRatio) / 3)));
+          setAiAnalysis(`✓ Excellent Profile: DTI ratio is only ${dtiRatio.toFixed(1)}%. Strong approval likelihood with favorable terms.`);
         }
-      };
-
-      // Debounce the API call
-      const timeoutId = setTimeout(fetchAiAnalysis, 500);
-      return () => clearTimeout(timeoutId);
+        setAiLoading(false);
+      }, 300);
+    } else if (view === 'APPLICATION') {
+      setConfidence(0);
+      setAiAnalysis('Enter your monthly income and existing debt to calculate your DTI ratio and approval likelihood.');
     }
-  }, [loanAmount, term, view]);
+  }, [loanAmount, term, monthlyIncome, existingDebt, view]);
 
-  const calculateLocalAnalysis = () => {
-    const baseScore = 95;
-    const amountImpact = (loanAmount / 50000) * 15;
-    const termImpact = (term / 60) * 5;
-    const finalScore = Math.round(baseScore - amountImpact + termImpact);
-    setConfidence(finalScore);
-    
-    if (finalScore > 90) setAiAnalysis('Excellent profile. Debt-to-income ratio is very healthy.');
-    else if (finalScore > 80) setAiAnalysis('High likelihood. Monthly income supports requested installment.');
-    else setAiAnalysis('Caution advised. Extending term to 30+ months increases approval score.');
+  // Demo fill functions
+  const handleDemoFillApprove = () => {
+    setMonthlyIncome(DEMO_APPROVE_DATA.monthlyIncome);
+    setExistingDebt(DEMO_APPROVE_DATA.existingDebt);
+    setEmployer(DEMO_APPROVE_DATA.employer);
+    setEmploymentYears(DEMO_APPROVE_DATA.employmentYears);
+    setLoanAmount(15000); // Reasonable amount for this income
+  };
+
+  const handleDemoFillReject = () => {
+    setMonthlyIncome(DEMO_REJECT_DATA.monthlyIncome);
+    setExistingDebt(DEMO_REJECT_DATA.existingDebt);
+    setEmployer(DEMO_REJECT_DATA.employer);
+    setEmploymentYears(DEMO_REJECT_DATA.employmentYears);
+    setLoanAmount(40000); // Too high for this income
   };
 
   // Calculator Logic - use backend if available
@@ -274,34 +270,86 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
     }
   };
 
-  // Submit loan application
+  // Submit loan application with DTI check
   const handleSubmitApplication = async () => {
     if (!user.id) {
       alert('Please log in to apply for a loan');
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const response = await loanApi.applyForLoan({
-        user_id: user.id,
-        requested_amount: loanAmount,
-        monthly_income: 8000, // Could get from user profile
-        credit_score: 750, // Could get from user profile
-        ai_risk_score: confidence,
-      });
+    if (monthlyIncome <= 0) {
+      alert('Please enter your monthly income');
+      return;
+    }
 
-      if (response.success) {
-        alert('Loan application submitted successfully! You will be notified once it is reviewed.');
-        setView('TRACKING');
+    setSubmitting(true);
+    setApplicationResult(null);
+    
+    try {
+      // Calculate EMI
+      const monthlyRate = 0.085 / 12; // 8.5% annual rate
+      const emi = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, term)) / (Math.pow(1 + monthlyRate, term) - 1);
+      
+      // Calculate DTI ratio
+      const totalMonthlyDebt = existingDebt + emi;
+      const dtiRatio = (totalMonthlyDebt / monthlyIncome) * 100;
+
+      // Simulate processing with realistic steps
+      setProcessingStep('Validating application data...');
+      await new Promise(r => setTimeout(r, 800));
+      
+      setProcessingStep('Checking credit history...');
+      await new Promise(r => setTimeout(r, 1000));
+      
+      setProcessingStep('Analyzing Debt-to-Income ratio...');
+      await new Promise(r => setTimeout(r, 1200));
+      
+      setProcessingStep('Running risk assessment model...');
+      await new Promise(r => setTimeout(r, 1000));
+      
+      setProcessingStep('Generating decision...');
+      await new Promise(r => setTimeout(r, 600));
+
+      // DTI Decision: If (Existing Debt + New EMI) > (Income * 0.5), REJECT
+      if (dtiRatio > 50) {
+        setApplicationResult({
+          status: 'REJECTED',
+          message: `Application Denied: High Debt-to-Income Ratio (${dtiRatio.toFixed(1)}%). Your total monthly debt obligations would exceed 50% of your income. Consider reducing the loan amount or paying down existing debt.`,
+          dtiRatio
+        });
       } else {
-        alert(response.error || 'Failed to submit application');
+        // Try to submit to backend
+        try {
+          const response = await loanApi.applyForLoan({
+            user_id: user.id,
+            requested_amount: loanAmount,
+            monthly_income: monthlyIncome,
+            credit_score: 750,
+            ai_risk_score: confidence,
+          });
+          
+          if (response.success) {
+            setApplicationResult({
+              status: 'APPROVED',
+              message: `Congratulations! Your loan application for $${loanAmount.toLocaleString()} has been approved! DTI ratio: ${dtiRatio.toFixed(1)}%. Expected monthly payment: $${emi.toFixed(2)}. Final approval documents will be sent to your email.`,
+              dtiRatio
+            });
+          }
+        } catch {
+          // Even if backend fails, show approval for demo
+          setApplicationResult({
+            status: 'APPROVED',
+            message: `Congratulations! Your loan application for $${loanAmount.toLocaleString()} has been approved! DTI ratio: ${dtiRatio.toFixed(1)}%. Expected monthly payment: $${emi.toFixed(2)}. Final approval documents will be sent to your email.`,
+            dtiRatio
+          });
+        }
       }
     } catch (error) {
       console.error('Error submitting application:', error);
       alert('Failed to submit application. Please try again.');
     } finally {
       setSubmitting(false);
+      setProcessingStep('');
     }
   };
 
@@ -544,14 +592,81 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
 
       {view === 'APPLICATION' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in slide-in-from-right-8">
-           <div className="lg:col-span-7 bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-10">
-              <div className="flex items-center gap-3">
-                 <span className="material-symbols-outlined text-primary">psychology</span>
-                 <h3 className="text-2xl font-black">AI Loan Application</h3>
+           <div className="lg:col-span-7 bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+              <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-3">
+                   <span className="material-symbols-outlined text-primary">psychology</span>
+                   <h3 className="text-2xl font-black">AI Loan Application</h3>
+                 </div>
+                 {/* Demo Fill Buttons */}
+                 <div className="flex gap-2">
+                   <button 
+                     onClick={handleDemoFillReject}
+                     className="text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 text-red-600 rounded-lg font-medium transition-all"
+                     title="Fill with data that will be rejected"
+                   >
+                     Demo: Reject
+                   </button>
+                   <button 
+                     onClick={handleDemoFillApprove}
+                     className="text-xs px-3 py-1.5 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 text-green-600 rounded-lg font-medium transition-all"
+                     title="Fill with data that will be approved"
+                   >
+                     Demo: Approve
+                   </button>
+                 </div>
               </div>
 
-              <div className="space-y-8">
-                 <div className="space-y-4">
+              {/* Application Result */}
+              {applicationResult && (
+                <div className={`p-6 rounded-2xl border-2 animate-in zoom-in-95 ${
+                  applicationResult.status === 'APPROVED' 
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                }`}>
+                  <div className="flex items-start gap-4">
+                    <span className={`material-symbols-outlined text-4xl ${
+                      applicationResult.status === 'APPROVED' ? 'text-green-500' : 'text-red-500'
+                    }`}>
+                      {applicationResult.status === 'APPROVED' ? 'check_circle' : 'cancel'}
+                    </span>
+                    <div>
+                      <h4 className={`text-xl font-bold mb-2 ${
+                        applicationResult.status === 'APPROVED' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                      }`}>
+                        {applicationResult.status === 'APPROVED' ? 'Application Approved!' : 'Application Denied'}
+                      </h4>
+                      <p className="text-sm text-slate-600 dark:text-slate-300">{applicationResult.message}</p>
+                      <button 
+                        onClick={() => { setApplicationResult(null); setView('TRACKING'); }}
+                        className="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold text-sm"
+                      >
+                        {applicationResult.status === 'APPROVED' ? 'View My Loans' : 'Try Again'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Processing Animation */}
+              {submitting && processingStep && (
+                <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 animate-in fade-in">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <span className="material-symbols-outlined text-primary text-3xl animate-spin">sync</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-primary">{processingStep}</p>
+                      <p className="text-xs text-slate-500 mt-1">Please wait while we process your application...</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!applicationResult && (
+                <div className="space-y-6">
+                  {/* Loan Amount Slider */}
+                  <div className="space-y-4">
                     <div className="flex justify-between">
                        <label className="text-sm font-bold">Loan Amount ($)</label>
                        <span className="text-xl font-black text-primary">${loanAmount.toLocaleString()}</span>
@@ -561,9 +676,10 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
                       value={loanAmount} onChange={(e) => setLoanAmount(parseInt(e.target.value))}
                       className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full appearance-none accent-primary"
                     />
-                 </div>
+                  </div>
 
-                 <div className="space-y-4">
+                  {/* Repayment Period Slider */}
+                  <div className="space-y-4">
                     <div className="flex justify-between">
                        <label className="text-sm font-bold">Repayment Period</label>
                        <span className="text-xl font-black text-primary">{term} Months</span>
@@ -573,20 +689,83 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
                       value={term} onChange={(e) => setTerm(parseInt(e.target.value))}
                       className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full appearance-none accent-primary"
                     />
-                 </div>
-              </div>
+                  </div>
 
-              <button 
-                onClick={handleSubmitApplication}
-                disabled={submitting}
-                className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {submitting ? (
-                  <span className="material-symbols-outlined animate-spin">refresh</span>
-                ) : (
-                  'Submit Application'
-                )}
-              </button>
+                  {/* Financial Details Section */}
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                    <h4 className="font-bold text-sm text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm">account_balance</span>
+                      Financial Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-bold text-slate-600 dark:text-slate-400 block mb-2">Monthly Income ($)</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-3.5 text-slate-400 font-bold">$</span>
+                          <input 
+                            type="number"
+                            value={monthlyIncome || ''}
+                            onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+                            placeholder="8,000"
+                            className="w-full h-12 pl-10 pr-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold focus:ring-2 focus:ring-primary border-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold text-slate-600 dark:text-slate-400 block mb-2">Existing Monthly Debt ($)</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-3.5 text-slate-400 font-bold">$</span>
+                          <input 
+                            type="number"
+                            value={existingDebt || ''}
+                            onChange={(e) => setExistingDebt(Number(e.target.value))}
+                            placeholder="500"
+                            className="w-full h-12 pl-10 pr-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold focus:ring-2 focus:ring-primary border-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold text-slate-600 dark:text-slate-400 block mb-2">Employer Name</label>
+                        <input 
+                          type="text"
+                          value={employer}
+                          onChange={(e) => setEmployer(e.target.value)}
+                          placeholder="Acme Corporation"
+                          className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold focus:ring-2 focus:ring-primary border-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold text-slate-600 dark:text-slate-400 block mb-2">Years Employed</label>
+                        <input 
+                          type="number"
+                          value={employmentYears || ''}
+                          onChange={(e) => setEmploymentYears(Number(e.target.value))}
+                          placeholder="5"
+                          className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold focus:ring-2 focus:ring-primary border-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleSubmitApplication}
+                    disabled={submitting || monthlyIncome <= 0}
+                    className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="material-symbols-outlined animate-spin">sync</span>
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Submit Application
+                        <span className="material-symbols-outlined">arrow_forward</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
            </div>
 
            <div className="lg:col-span-5 space-y-6">
@@ -595,21 +774,36 @@ const Loans: React.FC<LoansProps> = ({ user, onPayment }) => {
                  <div className="relative size-40 mx-auto">
                     <svg className="size-full transform -rotate-90">
                        <circle cx="80" cy="80" r="70" className="stroke-slate-100 dark:stroke-slate-800 fill-none" strokeWidth="12" />
-                       <circle cx="80" cy="80" r="70" className="stroke-primary fill-none transition-all duration-500" strokeWidth="12" strokeDasharray="440" strokeDashoffset={440 - (440 * confidence / 100)} />
+                       <circle cx="80" cy="80" r="70" className={`fill-none transition-all duration-500 ${
+                         confidence > 70 ? 'stroke-green-500' : confidence > 40 ? 'stroke-yellow-500' : 'stroke-red-500'
+                       }`} strokeWidth="12" strokeDasharray="440" strokeDashoffset={440 - (440 * confidence / 100)} />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                       <span className="text-4xl font-black">{confidence}%</span>
+                       <span className={`text-4xl font-black ${
+                         confidence > 70 ? 'text-green-500' : confidence > 40 ? 'text-yellow-500' : confidence > 0 ? 'text-red-500' : 'text-slate-400'
+                       }`}>{confidence}%</span>
                        <span className="text-[10px] font-bold uppercase text-slate-400">Score</span>
                     </div>
                  </div>
                  <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-left">
                     <p className="text-[10px] font-bold uppercase text-primary mb-2 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs">auto_awesome</span> AI Risk Analysis
-                      {aiLoading && <span className="material-symbols-outlined text-xs animate-spin ml-2">refresh</span>}
+                      <span className="material-symbols-outlined text-xs">auto_awesome</span> AI Risk Analysis (DTI)
+                      {aiLoading && <span className="material-symbols-outlined text-xs animate-spin ml-2">sync</span>}
                     </p>
                     <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                      {aiLoading ? 'Analyzing your application...' : aiAnalysis}
+                      {aiLoading ? 'Analyzing your DTI ratio...' : aiAnalysis}
                     </p>
+                 </div>
+                 
+                 {/* DTI Explanation */}
+                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800 text-left">
+                   <p className="text-[10px] font-bold uppercase text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
+                     <span className="material-symbols-outlined text-xs">info</span> What is DTI?
+                   </p>
+                   <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                     Debt-to-Income (DTI) ratio measures your monthly debt payments vs. income. 
+                     Loans are <strong>automatically rejected</strong> if DTI exceeds 50%.
+                   </p>
                  </div>
               </div>
            </div>

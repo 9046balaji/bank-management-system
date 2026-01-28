@@ -495,31 +495,31 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
 
       {/* AI Chat Widget */}
       {showChat && (
-        <div className="fixed bottom-6 right-6 w-[450px] h-[600px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col z-50 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-6 right-6 w-[520px] h-[700px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col z-50 animate-in slide-in-from-bottom-4 duration-300">
           {/* Chat Header */}
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-primary to-blue-600 text-white rounded-t-3xl">
             <div className="flex items-center gap-3">
-              <div className="size-12 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="material-symbols-outlined text-2xl">smart_toy</span>
+              <div className="size-14 bg-white/20 rounded-full flex items-center justify-center">
+                <span className="material-symbols-outlined text-3xl">smart_toy</span>
               </div>
               <div>
-                <h4 className="font-bold text-lg">Aura AI Assistant</h4>
+                <h4 className="font-bold text-xl">Aura AI Assistant</h4>
                 <p className="text-sm text-white/70">Banking Support • Online</p>
               </div>
             </div>
             <button 
               onClick={() => setShowChat(false)} 
-              className="size-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+              className="size-10 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
           </div>
 
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {chatHistory.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] px-4 py-3 rounded-2xl ${
+                <div className={`max-w-[85%] px-5 py-3.5 rounded-2xl text-[15px] ${
                   msg.role === 'user' 
                     ? 'bg-primary text-white rounded-br-sm' 
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-sm'
@@ -530,7 +530,7 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
             ))}
             {chatLoading && (
               <div className="flex justify-start">
-                <div className="bg-slate-100 dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-bl-sm">
+                <div className="bg-slate-100 dark:bg-slate-800 px-5 py-3.5 rounded-2xl rounded-bl-sm">
                   <span className="flex items-center gap-2 text-slate-500">
                     <span className="size-2.5 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
                     <span className="size-2.5 bg-slate-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
@@ -543,12 +543,12 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
           </div>
 
           {/* Quick Actions */}
-          <div className="px-5 pb-3 flex flex-wrap gap-2">
+          <div className="px-6 pb-3 flex flex-wrap gap-2">
             {quickActions.map((action, idx) => (
               <button 
                 key={idx}
                 onClick={() => handleQuickAction(action.message)}
-                className="px-4 py-1.5 text-sm bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-primary hover:text-white transition-colors font-medium"
+                className="px-4 py-2 text-sm bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-primary hover:text-white transition-colors font-medium"
               >
                 {action.label}
               </button>
@@ -564,14 +564,14 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
                 onChange={(e) => setChatMessage(e.target.value)}
                 placeholder="Type your question..."
                 disabled={chatLoading}
-                className="flex-1 h-12 px-5 rounded-xl bg-slate-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-primary"
+                className="flex-1 h-14 px-5 rounded-xl bg-slate-50 dark:bg-slate-800 border-none focus:ring-2 focus:ring-primary text-[15px]"
               />
               <button 
                 type="submit" 
                 disabled={chatLoading || !chatMessage.trim()}
-                className="size-12 bg-primary text-white rounded-xl flex items-center justify-center hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                className="size-14 bg-primary text-white rounded-xl flex items-center justify-center hover:bg-primary-hover disabled:opacity-50 transition-colors"
               >
-                <span className="material-symbols-outlined text-sm">send</span>
+                <span className="material-symbols-outlined">send</span>
               </button>
             </div>
           </form>

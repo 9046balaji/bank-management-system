@@ -29,46 +29,106 @@ loan_model = None
 expense_classifier = None
 expense_vectorizer = None
 
+# User corrections storage (in-memory, persists for session)
+# In production, this should be stored in a database or JSON file
+user_corrections = {}
+
+def load_user_corrections():
+    """Load user corrections from file if it exists"""
+    global user_corrections
+    corrections_file = os.path.join(MODEL_DIR, 'user_corrections.json')
+    try:
+        if os.path.exists(corrections_file):
+            import json
+            with open(corrections_file, 'r') as f:
+                user_corrections = json.load(f)
+            print(f"✓ Loaded {len(user_corrections)} user corrections")
+    except Exception as e:
+        print(f"⚠ Could not load user corrections: {e}")
+
+def save_user_corrections():
+    """Persist user corrections to file"""
+    corrections_file = os.path.join(MODEL_DIR, 'user_corrections.json')
+    try:
+        import json
+        with open(corrections_file, 'w') as f:
+            json.dump(user_corrections, f, indent=2)
+    except Exception as e:
+        print(f"⚠ Could not save user corrections: {e}")
+
 def load_models():
-    """Load ML models on startup"""
+    """Load ML models on startup with robust error handling"""
     global fraud_model, loan_model, expense_classifier, expense_vectorizer
     
-    try:
-        # Load fraud detection model (pickle format)
-        fraud_model_path = os.path.join(MODEL_DIR, 'credit_card_model.pkl')
-        if os.path.exists(fraud_model_path):
-            with open(fraud_model_path, 'rb') as f:
-                fraud_model = pickle.load(f)
-            print(f"✓ Fraud detection model loaded from {fraud_model_path}")
-        else:
-            print(f"⚠ Fraud model not found at {fraud_model_path}")
-    except Exception as e:
-        print(f"⚠ Error loading fraud model: {e}")
+    # Define model configurations
+    models_config = {
+        'fraud': {
+            'filename': 'credit_card_model.pkl',
+            'loader': 'pickle',
+            'description': 'Fraud Detection Model'
+        },
+        'loan': {
+            'filename': 'load_prediction_model.joblib',
+            'loader': 'joblib',
+            'description': 'Loan Prediction Model'
+        },
+        'expense': {
+            'filename': 'expense_classifier_clean.pkl',
+            'loader': 'pickle',
+            'description': 'Expense Classifier Model'
+        },
+        'vectorizer': {
+            'filename': 'tfidf_vectorizer_clean.pkl',
+            'loader': 'pickle',
+            'description': 'TF-IDF Vectorizer'
+        }
+    }
     
-    try:
-        # Load loan prediction model (joblib format)
-        loan_model_path = os.path.join(MODEL_DIR, 'load_prediction_model.joblib')
-        if os.path.exists(loan_model_path):
-            loan_model = joblib.load(loan_model_path)
-            print(f"✓ Loan prediction model loaded from {loan_model_path}")
-        else:
-            print(f"⚠ Loan model not found at {loan_model_path}")
-    except Exception as e:
-        print(f"⚠ Error loading loan model: {e}")
+    print("\n" + "="*50)
+    print("     AURA BANK ML ENGINE - Loading Models")
+    print("="*50)
+    print(f"Model Directory: {MODEL_DIR}\n")
     
-    try:
-        # Load expense categorization model (TF-IDF + Logistic Regression)
-        expense_model_path = os.path.join(MODEL_DIR, 'expense_classifier_clean.pkl')
-        vectorizer_path = os.path.join(MODEL_DIR, 'tfidf_vectorizer_clean.pkl')
+    loaded_count = 0
+    total_count = len(models_config)
+    
+    for name, config in models_config.items():
+        path = os.path.join(MODEL_DIR, config['filename'])
         
-        if os.path.exists(expense_model_path) and os.path.exists(vectorizer_path):
-            expense_classifier = joblib.load(expense_model_path)
-            expense_vectorizer = joblib.load(vectorizer_path)
-            print(f"✓ Expense categorizer model loaded from {expense_model_path}")
-        else:
-            print(f"⚠ Expense model not found at {expense_model_path}")
-    except Exception as e:
-        print(f"⚠ Error loading expense model: {e}")
+        if not os.path.exists(path):
+            print(f"⚠️  {config['description']}: File not found")
+            print(f"    Expected at: {config['filename']}")
+            continue
+        
+        try:
+            if config['loader'] == 'pickle':
+                with open(path, 'rb') as f:
+                    model = pickle.load(f)
+            else:
+                model = joblib.load(path)
+            
+            # Assign to global variables
+            if name == 'fraud':
+                fraud_model = model
+            elif name == 'loan':
+                loan_model = model
+            elif name == 'expense':
+                expense_classifier = model
+            elif name == 'vectorizer':
+                expense_vectorizer = model
+            
+            print(f"✅ {config['description']}: Loaded successfully")
+            loaded_count += 1
+            
+        except Exception as e:
+            print(f"❌ {config['description']}: Load failed")
+            print(f"    Error: {str(e)}")
+    
+    print(f"\n📊 Models loaded: {loaded_count}/{total_count}")
+    print("="*50 + "\n")
+    
+    # Load user corrections
+    load_user_corrections()
 
 # Load models on import
 load_models()
@@ -584,6 +644,84 @@ def get_category_fallback(description: str) -> tuple:
     return 'Others', 0.50
 
 
+# ==========================================
+# USER CORRECTION LEARNING ENDPOINT
+# ==========================================
+@app.route('/train_correction', methods=['POST'])
+def train_correction():
+    """
+    Allow users to correct the AI's categorization.
+    This teaches the model their preferences for future transactions.
+    
+    Request body: {
+        "description": "uber trip to airport",
+        "correct_category": "Transportation"
+    }
+    
+    Response: {
+        "success": true,
+        "message": "AI has learned this preference.",
+        "total_corrections": 5
+    }
+    """
+    try:
+        data = request.json
+        description = data.get('description', '').lower().strip()
+        category = data.get('correct_category', '').strip()
+        
+        if not description or not category:
+            return jsonify({'error': 'Both description and correct_category are required'}), 400
+        
+        # Validate category is a known category
+        valid_categories = list(CATEGORY_METADATA.keys())
+        if category not in valid_categories:
+            return jsonify({
+                'error': f'Invalid category. Must be one of: {", ".join(valid_categories)}'
+            }), 400
+        
+        # Store the correction
+        user_corrections[description] = category
+        
+        # Persist to file for future sessions
+        save_user_corrections()
+        
+        return jsonify({
+            'success': True,
+            'message': f'AI has learned that "{description}" should be categorized as "{category}".',
+            'total_corrections': len(user_corrections)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/get_corrections', methods=['GET'])
+def get_corrections():
+    """Get all user corrections for display/management"""
+    return jsonify({
+        'corrections': user_corrections,
+        'total': len(user_corrections)
+    })
+
+
+@app.route('/delete_correction', methods=['POST'])
+def delete_correction():
+    """Delete a specific user correction"""
+    try:
+        data = request.json
+        description = data.get('description', '').lower().strip()
+        
+        if description in user_corrections:
+            del user_corrections[description]
+            save_user_corrections()
+            return jsonify({'success': True, 'message': 'Correction removed'})
+        else:
+            return jsonify({'error': 'Correction not found'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/categorize_expense', methods=['POST'])
 def categorize_expense():
     """
@@ -608,6 +746,36 @@ def categorize_expense():
         if not description:
             return jsonify({'error': 'Description is required'}), 400
         
+        description_lower = description.lower().strip()
+        
+        # 1. Check User Corrections First (The "Memory" feature)
+        # This allows the AI to "learn" from user feedback
+        if description_lower in user_corrections:
+            category = user_corrections[description_lower]
+            metadata = CATEGORY_METADATA.get(category, CATEGORY_METADATA['Others'])
+            return jsonify({
+                'category': category,
+                'confidence': 100.0,  # 100% confidence because user taught it
+                'icon': metadata['icon'],
+                'color': metadata['color'],
+                'model_used': 'user_learning',
+                'learned': True
+            })
+        
+        # 2. Check for partial matches in user corrections
+        for corrected_desc, category in user_corrections.items():
+            if corrected_desc in description_lower or description_lower in corrected_desc:
+                metadata = CATEGORY_METADATA.get(category, CATEGORY_METADATA['Others'])
+                return jsonify({
+                    'category': category,
+                    'confidence': 95.0,  # High confidence for partial match
+                    'icon': metadata['icon'],
+                    'color': metadata['color'],
+                    'model_used': 'user_learning_partial',
+                    'learned': True
+                })
+        
+        # 3. Use ML model if available
         if expense_classifier is not None and expense_vectorizer is not None:
             # Use ML model
             input_tfidf = expense_vectorizer.transform([description])

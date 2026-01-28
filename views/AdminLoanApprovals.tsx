@@ -23,6 +23,85 @@ interface AdminLoanApprovalsProps {
   user: UserState;
 }
 
+// Demo loan applications for hackathon
+const DEMO_APPLICATIONS: LoanApplication[] = [
+  {
+    id: 'demo-1',
+    user_id: 'user-101',
+    full_name: 'Rajesh Kumar',
+    email: 'rajesh.kumar@email.com',
+    requested_amount: 500000,
+    monthly_income: 85000,
+    credit_score: 780,
+    ai_risk_score: 85,
+    ml_approval_probability: 0.92,
+    ml_recommendation: 'APPROVE',
+    status: 'PENDING',
+    applied_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    reviewed_at: null,
+  },
+  {
+    id: 'demo-2',
+    user_id: 'user-102',
+    full_name: 'Priya Sharma',
+    email: 'priya.sharma@email.com',
+    requested_amount: 750000,
+    monthly_income: 120000,
+    credit_score: 720,
+    ai_risk_score: 72,
+    ml_approval_probability: 0.78,
+    ml_recommendation: 'REVIEW',
+    status: 'PENDING',
+    applied_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    reviewed_at: null,
+  },
+  {
+    id: 'demo-3',
+    user_id: 'user-103',
+    full_name: 'Amit Patel',
+    email: 'amit.patel@email.com',
+    requested_amount: 1200000,
+    monthly_income: 45000,
+    credit_score: 580,
+    ai_risk_score: 35,
+    ml_approval_probability: 0.23,
+    ml_recommendation: 'REJECT',
+    status: 'PENDING',
+    applied_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    reviewed_at: null,
+  },
+  {
+    id: 'demo-4',
+    user_id: 'user-104',
+    full_name: 'Sunita Reddy',
+    email: 'sunita.reddy@email.com',
+    requested_amount: 300000,
+    monthly_income: 95000,
+    credit_score: 810,
+    ai_risk_score: 92,
+    ml_approval_probability: 0.96,
+    ml_recommendation: 'APPROVE',
+    status: 'APPROVED',
+    applied_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    reviewed_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'demo-5',
+    user_id: 'user-105',
+    full_name: 'Vikram Singh',
+    email: 'vikram.singh@email.com',
+    requested_amount: 2000000,
+    monthly_income: 55000,
+    credit_score: 520,
+    ai_risk_score: 22,
+    ml_approval_probability: 0.15,
+    ml_recommendation: 'REJECT',
+    status: 'REJECTED',
+    applied_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    reviewed_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
 const AdminLoanApprovals: React.FC<AdminLoanApprovalsProps> = ({ user }) => {
   const [applications, setApplications] = useState<LoanApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,17 +109,30 @@ const AdminLoanApprovals: React.FC<AdminLoanApprovalsProps> = ({ user }) => {
   const [expandedApp, setExpandedApp] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [mlAnalyzing, setMlAnalyzing] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
-    fetchApplications();
-  }, []);
+    if (demoMode) {
+      loadDemoData();
+    } else {
+      fetchApplications();
+    }
+  }, [demoMode]);
+
+  const loadDemoData = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setApplications(DEMO_APPLICATIONS);
+      setLoading(false);
+    }, 800);
+  };
 
   const fetchApplications = async () => {
     try {
       setLoading(true);
       const response = await loanApi.getApplications();
       if (response.success) {
-        setApplications(response.data || []);
+        setApplications((response.data || []) as LoanApplication[]);
       } else {
         setError('Failed to load applications');
       }
@@ -50,6 +142,19 @@ const AdminLoanApprovals: React.FC<AdminLoanApprovalsProps> = ({ user }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Demo mode handlers
+  const handleDemoReview = (id: string, status: 'APPROVED' | 'REJECTED') => {
+    setProcessing(id);
+    setTimeout(() => {
+      setApplications(prev => prev.map(app => 
+        app.id === id 
+          ? { ...app, status, reviewed_at: new Date().toISOString() } 
+          : app
+      ));
+      setProcessing(null);
+    }, 1500);
   };
 
   // Run ML analysis on pending applications
@@ -150,6 +255,17 @@ const AdminLoanApprovals: React.FC<AdminLoanApprovalsProps> = ({ user }) => {
           <p className="text-slate-500">Review and process pending loan applications.</p>
         </div>
         <div className="flex gap-3">
+           <button
+             onClick={() => setDemoMode(!demoMode)}
+             className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all ${
+               demoMode 
+                 ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30' 
+                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+             }`}
+           >
+             <span className="material-symbols-outlined text-sm">{demoMode ? 'auto_awesome' : 'cloud_sync'}</span>
+             {demoMode ? 'Demo' : 'Live'}
+           </button>
            <button 
              onClick={runMlAnalysis}
              disabled={mlAnalyzing || pendingApps.length === 0}
@@ -257,7 +373,7 @@ const AdminLoanApprovals: React.FC<AdminLoanApprovalsProps> = ({ user }) => {
                           </td>
                           <td className="px-8 py-6 text-right space-x-2">
                             <button 
-                              onClick={() => handleReview(app.id, 'APPROVED')}
+                              onClick={() => demoMode ? handleDemoReview(app.id, 'APPROVED') : handleReview(app.id, 'APPROVED')}
                               disabled={processing === app.id}
                               className="p-2 hover:bg-success/10 text-success rounded-lg transition-colors disabled:opacity-50" 
                               title="Approve"
@@ -265,7 +381,7 @@ const AdminLoanApprovals: React.FC<AdminLoanApprovalsProps> = ({ user }) => {
                               <span className="material-symbols-outlined">{processing === app.id ? 'progress_activity' : 'check_circle'}</span>
                             </button>
                             <button 
-                              onClick={() => handleReview(app.id, 'REJECTED')}
+                              onClick={() => demoMode ? handleDemoReview(app.id, 'REJECTED') : handleReview(app.id, 'REJECTED')}
                               disabled={processing === app.id}
                               className="p-2 hover:bg-warning/10 text-warning rounded-lg transition-colors disabled:opacity-50" 
                               title="Reject"

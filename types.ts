@@ -102,6 +102,42 @@ export interface FraudAlert {
   status: 'PENDING' | 'CONFIRMED' | 'DISMISSED';
 }
 
+export interface LinkedBank {
+  id: string;
+  bankName: string;
+  bankLogo: string;
+  accountLast4: string;
+  accountType: string;
+  linkedAt: string;
+  isDefault: boolean;
+}
+
+export interface PendingDeposit {
+  id: string;
+  amount: number;
+  type: 'CHEQUE' | 'QR' | 'BANK_TRANSFER';
+  description: string;
+  createdAt: string;
+  clearsAt: string;
+  status: 'PENDING' | 'CLEARED' | 'REJECTED';
+  imageUrl?: string;
+}
+
+export interface AutoTopUpRule {
+  enabled: boolean;
+  threshold: number;
+  topUpAmount: number;
+  sourceBank?: string;
+}
+
+export interface UpcomingBill {
+  id: string;
+  name: string;
+  amount: number;
+  dueDate: string;
+  category: string;
+}
+
 export interface UserState {
   id?: string;
   name: string;
@@ -119,6 +155,12 @@ export interface UserState {
   tickets: Ticket[];
   fraudAlerts: FraudAlert[];
   notificationPreferences: NotificationPreferences;
+  linkedBanks: LinkedBank[];
+  pendingDeposits: PendingDeposit[];
+  upcomingBills: UpcomingBill[];
+  autoTopUp: AutoTopUpRule;
+  dailyWithdrawalUsed: number;
+  dailyWithdrawalLimit: number;
   settings: {
     maintenanceMode: boolean;
     currency: string;
