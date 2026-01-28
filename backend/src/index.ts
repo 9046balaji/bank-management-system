@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-import { query } from './db/connection';
+import { query, runMigrations } from './db/connection';
 import userRoutes from './routes/users';
 import accountRoutes from './routes/accounts';
 import transactionRoutes from './routes/transactions';
@@ -126,8 +126,12 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`
+const startServer = async () => {
+  // Run database migrations first
+  await runMigrations();
+  
+  app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════╗
 ║     Aura Bank Backend Server           ║
 ║     ================================    ║
@@ -135,7 +139,10 @@ app.listen(PORT, () => {
 ║     Env: ${process.env.NODE_ENV || 'development'}                    ║
 ║     Database: PostgreSQL               ║
 ╚════════════════════════════════════════╝
-  `);
-});
+    `);
+  });
+};
+
+startServer();
 
 export default app;

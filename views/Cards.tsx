@@ -74,9 +74,66 @@ const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
   const [statements, setStatements] = useState<CardTransaction[]>([]);
   const [statementsLoading, setStatementsLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+  const [applyingCard, setApplyingCard] = useState(false);
+  const [cardApplicationForm, setCardApplicationForm] = useState({
+    requested_limit: 5000,
+    monthly_income: 50000,
+    employment_status: 'EMPLOYED',
+    credit_score: 700,
+    purpose: '',
+  });
 
   const showToast = (message: string, type: 'success' | 'error' | 'warning') => {
     setToast({ message, type });
+  };
+
+  // Handle credit card application submission
+  const handleApplyForCreditCard = async () => {
+    if (!user.id) {
+      showToast('Please login to apply for a credit card', 'error');
+      return;
+    }
+
+    setApplyingCard(true);
+    try {
+      const response = await cardApi.applyForCard({
+        user_id: user.id,
+        account_id: user.accounts?.[0]?.id,
+        card_type: 'CREDIT',
+        requested_limit: cardApplicationForm.requested_limit,
+        monthly_income: cardApplicationForm.monthly_income,
+        employment_status: cardApplicationForm.employment_status,
+        credit_score: cardApplicationForm.credit_score,
+        purpose: cardApplicationForm.purpose,
+      });
+
+      if (response.success) {
+        showToast('Credit card application submitted successfully! You will be notified once reviewed.', 'success');
+        setShowApplyCreditCardModal(false);
+        // Reset form
+        setCardApplicationForm({
+          requested_limit: 5000,
+          monthly_income: 50000,
+          employment_status: 'EMPLOYED',
+          credit_score: 700,
+          purpose: '',
+        });
+      } else {
+        // Show specific error message from backend
+        showToast(response.error || 'Failed to submit application', 'error');
+      }
+    } catch (error: any) {
+      console.error('Error applying for credit card:', error);
+      // Extract meaningful error message
+      const errorMessage = error?.message || 'Failed to submit credit card application';
+      if (errorMessage.toLowerCase().includes('pending')) {
+        showToast('You already have a pending card application. Please wait for it to be reviewed.', 'warning');
+      } else {
+        showToast(errorMessage, 'error');
+      }
+    } finally {
+      setApplyingCard(false);
+    }
   };
 
   const [localSettings, setLocalSettings] = useState({
@@ -298,59 +355,107 @@ const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
       {/* Apply for Credit Card Modal */}
       {showApplyCreditCardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg p-8 space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg p-8 space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="text-center">
               <div className="size-20 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                 <span className="material-symbols-outlined text-4xl text-white">credit_score</span>
               </div>
               <h3 className="text-2xl font-bold">Apply for Credit Card</h3>
-              <p className="text-slate-500 mt-2">Get up to $10,000 credit limit with amazing rewards</p>
+              <p className="text-slate-500 mt-2">Complete the form below to apply</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
-                <span className="material-symbols-outlined text-amber-500 text-2xl mb-2">percent</span>
-                <p className="text-xs text-slate-500">Interest Rate</p>
-                <p className="font-bold">18.9% APR</p>
+            {/* Application Form */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">Requested Credit Limit ($)</label>
+                <input
+                  type="number"
+                  value={cardApplicationForm.requested_limit}
+                  onChange={(e) => setCardApplicationForm({ ...cardApplicationForm, requested_limit: parseInt(e.target.value) || 0 })}
+                  className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary"
+                  min="1000"
+                  max="50000"
+                />
               </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
-                <span className="material-symbols-outlined text-amber-500 text-2xl mb-2">stars</span>
-                <p className="text-xs text-slate-500">Rewards</p>
-                <p className="font-bold">2x Points</p>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">Monthly Income ($)</label>
+                <input
+                  type="number"
+                  value={cardApplicationForm.monthly_income}
+                  onChange={(e) => setCardApplicationForm({ ...cardApplicationForm, monthly_income: parseInt(e.target.value) || 0 })}
+                  className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary"
+                />
               </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
-                <span className="material-symbols-outlined text-amber-500 text-2xl mb-2">money_off</span>
-                <p className="text-xs text-slate-500">Annual Fee</p>
-                <p className="font-bold">$0 First Year</p>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">Employment Status</label>
+                <select
+                  value={cardApplicationForm.employment_status}
+                  onChange={(e) => setCardApplicationForm({ ...cardApplicationForm, employment_status: e.target.value })}
+                  className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary"
+                >
+                  <option value="EMPLOYED">Employed</option>
+                  <option value="SELF_EMPLOYED">Self Employed</option>
+                  <option value="STUDENT">Student</option>
+                  <option value="RETIRED">Retired</option>
+                  <option value="UNEMPLOYED">Unemployed</option>
+                </select>
               </div>
-              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl text-center">
-                <span className="material-symbols-outlined text-amber-500 text-2xl mb-2">security</span>
-                <p className="text-xs text-slate-500">Protection</p>
-                <p className="font-bold">Zero Liability</p>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">Credit Score (Estimated)</label>
+                <input
+                  type="number"
+                  value={cardApplicationForm.credit_score}
+                  onChange={(e) => setCardApplicationForm({ ...cardApplicationForm, credit_score: parseInt(e.target.value) || 0 })}
+                  className="w-full h-12 px-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary"
+                  min="300"
+                  max="850"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">Purpose (Optional)</label>
+                <textarea
+                  value={cardApplicationForm.purpose}
+                  onChange={(e) => setCardApplicationForm({ ...cardApplicationForm, purpose: e.target.value })}
+                  className="w-full h-24 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary resize-none"
+                  placeholder="Why do you need this credit card?"
+                />
               </div>
             </div>
 
             <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
               <p className="text-sm text-amber-700 dark:text-amber-400">
-                <span className="font-bold">Eligibility:</span> Minimum 650 credit score, 3+ months account history, and stable income verification required.
+                <span className="font-bold">Note:</span> Your application will be reviewed by our team. You'll be notified once a decision is made.
               </p>
             </div>
 
             <div className="flex gap-4">
               <button 
                 onClick={() => setShowApplyCreditCardModal(false)}
-                className="flex-1 h-12 border border-slate-200 dark:border-slate-800 rounded-xl font-bold"
+                disabled={applyingCard}
+                className="flex-1 h-12 border border-slate-200 dark:border-slate-800 rounded-xl font-bold disabled:opacity-50"
               >
-                Maybe Later
+                Cancel
               </button>
               <button 
-                onClick={() => {
-                  showToast('Credit card application submitted! We\'ll review and notify you within 24 hours.', 'success');
-                  setShowApplyCreditCardModal(false);
-                }}
-                className="flex-1 h-12 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                onClick={handleApplyForCreditCard}
+                disabled={applyingCard}
+                className="flex-1 h-12 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                Apply Now
+                {applyingCard ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-sm">refresh</span>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">send</span>
+                    Submit Application
+                  </>
+                )}
               </button>
             </div>
           </div>

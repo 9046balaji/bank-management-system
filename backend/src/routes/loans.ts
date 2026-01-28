@@ -119,6 +119,253 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
   }
 });
 
+// ==========================================
+// APPLICATION ROUTES - MUST come BEFORE /:id routes
+// ==========================================
+
+// Get loan applications
+router.get('/applications/all', async (req: Request, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT la.*, u.full_name, u.email
+       FROM loan_applications la
+       JOIN users u ON la.user_id = u.id
+       ORDER BY la.applied_at DESC`
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount,
+    });
+  } catch (error) {
+    console.error('Error fetching loan applications:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch applications',
+    });
+  }
+});
+
+// Get loan applications by user ID
+router.get('/applications/user/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const result = await query(
+      `SELECT * FROM loan_applications 
+       WHERE user_id = $1 
+       ORDER BY applied_at DESC`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount,
+    });
+  } catch (error) {
+    console.error('Error fetching user loan applications:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch applications',
+    });
+  }
+});
+
+// Create loan application
+router.post('/applications/create', async (req: Request, res: Response) => {
+  try {
+    const {
+      user_id,
+      requested_amount,
+      monthly_income = null,
+      credit_score = null,
+      ai_risk_score = null,
+    } = req.body;
+
+    if (!user_id || !requested_amount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: user_id, requested_amount',
+      });
+    }
+
+    const result = await query(
+      `INSERT INTO loan_applications (user_id, requested_amount, monthly_income, credit_score, ai_risk_score, status)
+       VALUES ($1, $2, $3, $4, $5, 'PENDING')
+       RETURNING *`,
+      [user_id, requested_amount, monthly_income, credit_score, ai_risk_score]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: result.rows[0],
+      message: 'Loan application created successfully',
+    });
+  } catch (error) {
+    console.error('Error creating loan application:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create application',
+    });
+  }
+});
+
+// Approve/Reject loan application - MUST be before /:id routes
+router.patch('/applications/:id/review', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, reviewed_by, interest_rate, term_months } = req.body;
+
+    if (!status || !['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Status must be APPROVED or REJECTED',
+      });
+    }
+
+    // Get application details
+    const appResult = await query('SELECT * FROM loan_applications WHERE id = $1', [id]);
+    if (appResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found',
+      });
+    }
+
+    const application = appResult.rows[0];
+
+    if (application.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        error: 'Application has already been reviewed',
+      });
+    }
+
+    // Update application status
+    await query(
+      `UPDATE loan_applications SET status = $2, reviewed_at = NOW() WHERE id = $1`,
+      [id, status]
+    );
+
+    // If approved, create the loan
+    if (status === 'APPROVED') {
+      const rate = interest_rate || 12.5; // Default interest rate
+      const months = term_months || 12; // Default term
+      const amount = parseFloat(application.requested_amount);
+      
+      // Calculate EMI: P × r × (1 + r)^n / ((1 + r)^n - 1)
+      const monthlyRate = rate / 100 / 12;
+      const emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, months)) / 
+                  (Math.pow(1 + monthlyRate, months) - 1);
+
+      const startDate = new Date();
+      const nextEmiDate = new Date();
+      nextEmiDate.setDate(nextEmiDate.getDate() + 30);
+
+      // Generate loan reference
+      const loanRef = `LOAN-${Date.now().toString(36).toUpperCase()}`;
+
+      await query(
+        `INSERT INTO loans (user_id, loan_reference_id, type, loan_amount, outstanding_balance, 
+                           interest_rate, term_months, start_date, next_emi_date, emi_amount, status)
+         VALUES ($1, $2, 'Personal Loan', $3, $3, $4, $5, $6, $7, $8, 'ACTIVE')`,
+        [
+          application.user_id,
+          loanRef,
+          amount,
+          rate,
+          months,
+          startDate,
+          nextEmiDate,
+          emi.toFixed(2)
+        ]
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Application ${status.toLowerCase()}`,
+      status: status,
+    });
+  } catch (error) {
+    console.error('Error reviewing application:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to review application',
+    });
+  }
+});
+
+// AI Risk Analysis endpoint - MUST be before /:id routes
+router.post('/applications/:id/ai-analysis', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { credit_score, monthly_income, loan_amount } = req.body;
+
+    // Get application
+    const appResult = await query('SELECT * FROM loan_applications WHERE id = $1', [id]);
+    if (appResult.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Application not found',
+      });
+    }
+
+    // Simple risk scoring algorithm
+    let riskScore = 50; // Base score
+
+    // Credit score factor
+    if (credit_score) {
+      if (credit_score >= 750) riskScore += 30;
+      else if (credit_score >= 650) riskScore += 15;
+      else if (credit_score >= 550) riskScore -= 10;
+      else riskScore -= 25;
+    }
+
+    // DTI factor
+    if (monthly_income && loan_amount) {
+      const dti = loan_amount / (monthly_income * 12);
+      if (dti < 3) riskScore += 20;
+      else if (dti < 5) riskScore += 10;
+      else if (dti > 8) riskScore -= 20;
+    }
+
+    // Cap score between 0 and 100
+    riskScore = Math.max(0, Math.min(100, riskScore));
+
+    // Determine recommendation
+    let recommendation: string;
+    if (riskScore >= 75) recommendation = 'STRONG_APPROVE';
+    else if (riskScore >= 60) recommendation = 'APPROVE';
+    else if (riskScore >= 45) recommendation = 'MANUAL_REVIEW';
+    else recommendation = 'REJECT';
+
+    res.json({
+      success: true,
+      data: {
+        risk_score: riskScore,
+        recommendation: recommendation,
+        factors: [
+          { name: 'Credit Score', impact: credit_score ? (credit_score >= 700 ? 'positive' : 'negative') : 'neutral' },
+          { name: 'Debt-to-Income', impact: monthly_income ? 'analyzed' : 'not_available' },
+          { name: 'Loan Amount', impact: 'analyzed' },
+        ],
+      },
+    });
+  } catch (error) {
+    console.error('Error in AI analysis:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to analyze application',
+    });
+  }
+});
+
+// ==========================================
+// PARAMETERIZED ROUTES - MUST come AFTER static routes
+// ==========================================
+
 // Get loan by ID - parameterized route comes AFTER static routes
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -205,94 +452,6 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create loan',
-    });
-  }
-});
-
-// Get loan applications
-router.get('/applications/all', async (req: Request, res: Response) => {
-  try {
-    const result = await query(
-      `SELECT la.*, u.full_name, u.email
-       FROM loan_applications la
-       JOIN users u ON la.user_id = u.id
-       ORDER BY la.applied_at DESC`
-    );
-
-    res.json({
-      success: true,
-      data: result.rows,
-      count: result.rowCount,
-    });
-  } catch (error) {
-    console.error('Error fetching loan applications:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch applications',
-    });
-  }
-});
-
-// Get loan applications by user ID
-router.get('/applications/user/:userId', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const result = await query(
-      `SELECT * FROM loan_applications 
-       WHERE user_id = $1 
-       ORDER BY applied_at DESC`,
-      [userId]
-    );
-
-    res.json({
-      success: true,
-      data: result.rows,
-      count: result.rowCount,
-    });
-  } catch (error) {
-    console.error('Error fetching user loan applications:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch applications',
-    });
-  }
-});
-
-// Create loan application
-router.post('/applications/create', async (req: Request, res: Response) => {
-  try {
-    const {
-      user_id,
-      requested_amount,
-      monthly_income = null,
-      credit_score = null,
-      ai_risk_score = null,
-    } = req.body;
-
-    if (!user_id || !requested_amount) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: user_id, requested_amount',
-      });
-    }
-
-    const result = await query(
-      `INSERT INTO loan_applications (user_id, requested_amount, monthly_income, credit_score, ai_risk_score, status)
-       VALUES ($1, $2, $3, $4, $5, 'PENDING')
-       RETURNING *`,
-      [user_id, requested_amount, monthly_income, credit_score, ai_risk_score]
-    );
-
-    res.status(201).json({
-      success: true,
-      data: result.rows[0],
-      message: 'Loan application created successfully',
-    });
-  } catch (error) {
-    console.error('Error creating loan application:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create application',
     });
   }
 });
@@ -457,168 +616,6 @@ router.get('/:id/payments', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch payments',
-    });
-  }
-});
-
-// Approve/Reject loan application
-router.patch('/applications/:id/review', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { status, reviewed_by, interest_rate, term_months } = req.body;
-
-    if (!status || !['APPROVED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Status must be APPROVED or REJECTED',
-      });
-    }
-
-    // Get application details
-    const appResult = await query('SELECT * FROM loan_applications WHERE id = $1', [id]);
-    if (appResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Application not found',
-      });
-    }
-
-    const application = appResult.rows[0];
-
-    if (application.status !== 'PENDING') {
-      return res.status(400).json({
-        success: false,
-        error: 'Application has already been reviewed',
-      });
-    }
-
-    // Update application status
-    await query(
-      `UPDATE loan_applications SET status = $2, reviewed_at = NOW() WHERE id = $1`,
-      [id, status]
-    );
-
-    // If approved, create the loan
-    if (status === 'APPROVED') {
-      const rate = interest_rate || 12.5; // Default interest rate
-      const months = term_months || 12; // Default term
-      const amount = parseFloat(application.requested_amount);
-      
-      // Calculate EMI: P × r × (1 + r)^n / ((1 + r)^n - 1)
-      const monthlyRate = rate / 100 / 12;
-      const emi = (amount * monthlyRate * Math.pow(1 + monthlyRate, months)) / 
-                  (Math.pow(1 + monthlyRate, months) - 1);
-
-      const startDate = new Date();
-      const nextEmiDate = new Date();
-      nextEmiDate.setDate(nextEmiDate.getDate() + 30);
-
-      // Generate loan reference
-      const loanRef = `LOAN-${Date.now().toString(36).toUpperCase()}`;
-
-      await query(
-        `INSERT INTO loans (user_id, loan_reference_id, type, loan_amount, outstanding_balance, 
-                           interest_rate, term_months, start_date, next_emi_date, emi_amount, status)
-         VALUES ($1, $2, 'Personal Loan', $3, $3, $4, $5, $6, $7, $8, 'ACTIVE')`,
-        [
-          application.user_id,
-          loanRef,
-          amount,
-          rate,
-          months,
-          startDate,
-          nextEmiDate,
-          emi.toFixed(2)
-        ]
-      );
-    }
-
-    res.json({
-      success: true,
-      message: `Application ${status.toLowerCase()}`,
-      status: status,
-    });
-  } catch (error) {
-    console.error('Error reviewing application:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to review application',
-    });
-  }
-});
-
-// AI Risk Analysis endpoint
-router.post('/applications/:id/ai-analysis', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { credit_score, monthly_income, loan_amount } = req.body;
-
-    // Get application
-    const appResult = await query('SELECT * FROM loan_applications WHERE id = $1', [id]);
-    if (appResult.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Application not found',
-      });
-    }
-
-    // Simple risk scoring algorithm (placeholder for AI integration)
-    // In production, this would call Google GenAI or similar
-    let riskScore = 50; // Base score
-
-    // Credit score impact (0-30 points)
-    if (credit_score) {
-      if (credit_score >= 750) riskScore += 30;
-      else if (credit_score >= 700) riskScore += 20;
-      else if (credit_score >= 650) riskScore += 10;
-      else if (credit_score >= 600) riskScore += 0;
-      else riskScore -= 20;
-    }
-
-    // Debt-to-income ratio (0-20 points)
-    if (monthly_income && loan_amount) {
-      const monthlyPayment = loan_amount / 12; // Simplified
-      const ratio = monthlyPayment / monthly_income;
-      if (ratio < 0.2) riskScore += 20;
-      else if (ratio < 0.3) riskScore += 15;
-      else if (ratio < 0.4) riskScore += 10;
-      else if (ratio < 0.5) riskScore += 5;
-      else riskScore -= 10;
-    }
-
-    // Clamp to 0-100
-    riskScore = Math.max(0, Math.min(100, riskScore));
-
-    // Update application with risk score
-    await query(
-      'UPDATE loan_applications SET ai_risk_score = $2 WHERE id = $1',
-      [id, riskScore]
-    );
-
-    // Generate recommendation
-    let recommendation = '';
-    if (riskScore >= 75) recommendation = 'STRONG_APPROVE';
-    else if (riskScore >= 60) recommendation = 'APPROVE';
-    else if (riskScore >= 45) recommendation = 'MANUAL_REVIEW';
-    else recommendation = 'REJECT';
-
-    res.json({
-      success: true,
-      data: {
-        risk_score: riskScore,
-        recommendation: recommendation,
-        factors: [
-          { name: 'Credit Score', impact: credit_score ? (credit_score >= 700 ? 'positive' : 'negative') : 'neutral' },
-          { name: 'Debt-to-Income', impact: monthly_income ? 'analyzed' : 'not_available' },
-          { name: 'Loan Amount', impact: 'analyzed' },
-        ],
-      },
-    });
-  } catch (error) {
-    console.error('Error in AI analysis:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to analyze application',
     });
   }
 });

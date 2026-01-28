@@ -8,9 +8,50 @@ const router: Router = express.Router();
 // ==========================================
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const result = await query('SELECT * FROM system_config ORDER BY config_key');
+    const result = await query('SELECT * FROM system_config ORDER BY category, config_key');
 
-    // Convert to key-value object
+    // Convert to key-value object with category info
+    const config: Record<string, any> = {};
+    const categories: Record<string, any[]> = {};
+    
+    result.rows.forEach((row: any) => {
+      config[row.config_key] = row.config_value;
+      
+      const cat = row.category || 'general';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push({
+        key: row.config_key,
+        value: row.config_value,
+        description: row.description,
+        updated_at: row.updated_at,
+      });
+    });
+
+    res.json({
+      success: true,
+      data: config,
+      categories,
+    });
+  } catch (error) {
+    console.error('Error fetching config:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch config',
+    });
+  }
+});
+
+// ==========================================
+// GET CONFIG BY CATEGORY
+// ==========================================
+router.get('/category/:category', async (req: Request, res: Response) => {
+  try {
+    const { category } = req.params;
+    const result = await query(
+      'SELECT * FROM system_config WHERE category = $1 ORDER BY config_key',
+      [category]
+    );
+
     const config: Record<string, string> = {};
     result.rows.forEach((row: any) => {
       config[row.config_key] = row.config_value;
@@ -19,12 +60,56 @@ router.get('/', async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: config,
+      rows: result.rows,
     });
   } catch (error) {
-    console.error('Error fetching config:', error);
+    console.error('Error fetching config by category:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch config',
+    });
+  }
+});
+
+// ==========================================
+// GET AUDIT LOG
+// ==========================================
+router.get('/audit-log', async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const configKey = req.query.config_key as string;
+
+    let queryText = `
+      SELECT * FROM config_audit_log 
+      ${configKey ? 'WHERE config_key = $3' : ''}
+      ORDER BY created_at DESC 
+      LIMIT $1 OFFSET $2
+    `;
+    const params = configKey ? [limit, offset, configKey] : [limit, offset];
+
+    const result = await query(queryText, params);
+
+    // Get total count
+    const countResult = await query(
+      `SELECT COUNT(*) FROM config_audit_log ${configKey ? 'WHERE config_key = $1' : ''}`,
+      configKey ? [configKey] : []
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      pagination: {
+        total: parseInt(countResult.rows[0].count),
+        limit,
+        offset,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching audit log:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch audit log',
     });
   }
 });
@@ -68,7 +153,7 @@ router.get('/:key', async (req: Request, res: Response) => {
 router.put('/:key', async (req: Request, res: Response) => {
   try {
     const { key } = req.params;
-    const { value, description } = req.body;
+    const { value, description, changed_by, changed_by_name, change_reason } = req.body;
 
     if (value === undefined) {
       return res.status(400).json({
@@ -76,6 +161,10 @@ router.put('/:key', async (req: Request, res: Response) => {
         error: 'Value is required',
       });
     }
+
+    // Get old value for audit
+    const oldResult = await query('SELECT config_value FROM system_config WHERE config_key = $1', [key]);
+    const oldValue = oldResult.rows[0]?.config_value || null;
 
     // Upsert config
     const result = await query(
@@ -85,6 +174,15 @@ router.put('/:key', async (req: Request, res: Response) => {
        RETURNING *`,
       [key, value.toString(), description || null]
     );
+
+    // Log to audit table if value changed
+    if (oldValue !== value.toString()) {
+      await query(
+        `INSERT INTO config_audit_log (config_key, old_value, new_value, changed_by, changed_by_name, change_reason, ip_address)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [key, oldValue, value.toString(), changed_by || null, changed_by_name || 'ADMIN', change_reason || null, req.ip || null]
+      );
+    }
 
     res.json({
       success: true,
@@ -110,7 +208,7 @@ router.put('/:key', async (req: Request, res: Response) => {
 // ==========================================
 router.put('/', async (req: Request, res: Response) => {
   try {
-    const { settings } = req.body;
+    const { settings, changed_by, changed_by_name, change_reason } = req.body;
 
     if (!settings || typeof settings !== 'object') {
       return res.status(400).json({
@@ -119,14 +217,27 @@ router.put('/', async (req: Request, res: Response) => {
       });
     }
 
-    // Update each config key
+    // Update each config key with audit logging
     for (const [key, value] of Object.entries(settings)) {
+      // Get old value
+      const oldResult = await query('SELECT config_value FROM system_config WHERE config_key = $1', [key]);
+      const oldValue = oldResult.rows[0]?.config_value || null;
+      
       await query(
         `INSERT INTO system_config (config_key, config_value, updated_at)
          VALUES ($1, $2, NOW())
          ON CONFLICT (config_key) DO UPDATE SET config_value = $2, updated_at = NOW()`,
         [key, String(value)]
       );
+
+      // Log to audit if value changed
+      if (oldValue !== String(value)) {
+        await query(
+          `INSERT INTO config_audit_log (config_key, old_value, new_value, changed_by, changed_by_name, change_reason, ip_address)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [key, oldValue, String(value), changed_by || null, changed_by_name || 'ADMIN', change_reason || 'Batch configuration update', req.ip || null]
+        );
+      }
     }
 
     // Return updated config

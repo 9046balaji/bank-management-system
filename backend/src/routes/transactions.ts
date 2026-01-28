@@ -1,4 +1,5 @@
 import express, { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { query } from '../db/connection';
 import pool from '../db/connection';
 import { idempotencyMiddleware, checkTransactionIdempotency, generateReferenceId } from '../utils/idempotency';
@@ -311,15 +312,27 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
       });
     }
 
-    // Verify PIN if provided and card exists
-    if (pin && sender.pin_hash) {
-      const crypto = require('crypto');
+    // Verify PIN
+    if (pin) {
       const pinHash = crypto.createHash('sha256').update(pin).digest('hex');
-      if (pinHash !== sender.pin_hash) {
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid PIN',
-        });
+      
+      if (sender.pin_hash) {
+        // Card has a PIN set - verify against stored hash
+        if (pinHash !== sender.pin_hash) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid PIN',
+          });
+        }
+      } else {
+        // No PIN hash stored - accept default PIN '1234' for demo/test accounts
+        const defaultPinHash = crypto.createHash('sha256').update('1234').digest('hex');
+        if (pinHash !== defaultPinHash) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid PIN. Default PIN for test accounts is 1234',
+          });
+        }
       }
     }
 

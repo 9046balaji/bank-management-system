@@ -21,6 +21,7 @@ import Support from './views/Support';
 import Profile from './views/Profile';
 import AdminOverview from './views/AdminOverview';
 import AdminLoanApprovals from './views/AdminLoanApprovals';
+import AdminCardApprovals from './views/AdminCardApprovals';
 import AdminSystemConfig from './views/AdminSystemConfig';
 
 // Session storage keys
@@ -363,6 +364,7 @@ const App: React.FC = () => {
       case View.PROFILE: return <Profile user={user} onUpdate={handleUpdateUser} />;
       case View.ADMIN_OVERVIEW: return <AdminOverview user={user} />;
       case View.ADMIN_LOANS: return <AdminLoanApprovals user={user} />;
+      case View.ADMIN_CARDS: return <AdminCardApprovals user={user} />;
       case View.ADMIN_CONFIG: return <AdminSystemConfig user={user} onUpdate={(s) => handleUpdateUser({ settings: { ...user.settings, ...s } })} />;
       default: return <Dashboard user={user} setView={setCurrentView} />;
     }

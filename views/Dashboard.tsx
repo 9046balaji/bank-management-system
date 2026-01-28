@@ -217,39 +217,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
     setTransactions(user.transactions);
   }, [user.transactions]);
 
-  // Simulate AI-triggered fraud detection (for hackathon demo)
-  useEffect(() => {
-    // Check for suspicious patterns in transactions
-    const detectFraud = () => {
-      const cardLast4 = user.cards?.[0]?.card_number?.slice(-4) || '4402';
-      
-      // Demo: Show fraud alert after 5 seconds on dashboard
-      const demoTimer = setTimeout(() => {
-        // Only show if no existing alerts
-        if (fraudAlerts.length === 0) {
-          const demoAlert: FraudAlert = {
-            id: `fraud-${Date.now()}`,
-            type: 'suspicious_transaction',
-            title: '🚨 Suspicious Transaction Detected!',
-            description: 'Our AI has detected an unusual transaction pattern. A purchase attempt was made from an unfamiliar location.',
-            amount: 2499.99,
-            location: 'Unknown Location - Eastern Europe',
-            timestamp: new Date(),
-            severity: 'high',
-            cardLast4,
-          };
-          setFraudAlerts([demoAlert]);
-        }
-      }, 8000);
-
-      return () => clearTimeout(demoTimer);
-    };
-
-    // Only trigger fraud detection in demo mode
-    if (user.id) {
-      detectFraud();
-    }
-  }, [user.id, user.cards]);
+  // Fraud detection disabled - removed demo alert
+  // The fraud alerts state and handlers are kept for potential real implementation
 
   // Handle block card from fraud alert
   const handleBlockCardFromAlert = async (alertId: string) => {
@@ -375,7 +344,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Active Loan</p>
             <p className="text-lg font-bold text-amber-600">
               {user.loans && user.loans.length > 0 
-                ? `$${user.loans.filter(l => l.status === 'APPROVED' || l.status === 'ACTIVE').reduce((sum, l) => sum + l.amount, 0).toLocaleString()}`
+                ? `$${user.loans.filter(l => l.status === 'ACTIVE').reduce((sum, l) => sum + l.amount, 0).toLocaleString()}`
                 : 'No Active Loans'}
             </p>
           </div>

@@ -340,6 +340,43 @@ export const cardApi = {
       method: 'POST',
       body: JSON.stringify({ reason }),
     }),
+
+  // Get all card applications (admin)
+  getApplications: () => request('/cards/applications/all'),
+
+  // Get pending card applications (admin)
+  getPendingApplications: () => request('/cards/applications/pending'),
+
+  // Create card application (user)
+  applyForCard: (applicationData: {
+    user_id: string;
+    account_id?: string;
+    card_type?: string;
+    requested_limit?: number;
+    monthly_income?: number;
+    employment_status?: string;
+    credit_score?: number;
+    purpose?: string;
+  }) =>
+    request('/cards/applications/create', {
+      method: 'POST',
+      body: JSON.stringify(applicationData),
+    }),
+
+  // Review card application (admin)
+  reviewApplication: (
+    id: string,
+    status: 'APPROVED' | 'REJECTED',
+    reviewedBy?: string,
+    dailyLimit?: number
+  ) =>
+    request(`/cards/applications/${id}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reviewed_by: reviewedBy, daily_limit: dailyLimit }),
+    }),
+
+  // Get user's card applications
+  getUserApplications: (userId: string) => request(`/cards/applications/user/${userId}`),
 };
 
 // ==========================================
@@ -584,19 +621,31 @@ export const configApi = {
   // Get config by key
   getByKey: (key: string) => request(`/config/${key}`),
 
+  // Get config by category
+  getByCategory: (category: string) => request(`/config/category/${category}`),
+
   // Update single config
-  update: (key: string, value: string, description?: string) =>
+  update: (key: string, value: string, options?: { description?: string; changed_by?: string; changed_by_name?: string; change_reason?: string }) =>
     request(`/config/${key}`, {
       method: 'PUT',
-      body: JSON.stringify({ value, description }),
+      body: JSON.stringify({ value, ...options }),
     }),
 
   // Batch update config
-  batchUpdate: (settings: Record<string, string | number | boolean>) =>
+  batchUpdate: (settings: Record<string, string | number | boolean>, options?: { changed_by?: string; changed_by_name?: string; change_reason?: string }) =>
     request('/config', {
       method: 'PUT',
-      body: JSON.stringify({ settings }),
+      body: JSON.stringify({ settings, ...options }),
     }),
+
+  // Get audit log
+  getAuditLog: (params?: { limit?: number; offset?: number; config_key?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    if (params?.config_key) searchParams.set('config_key', params.config_key);
+    return request(`/config/audit-log?${searchParams.toString()}`);
+  },
 
   // Delete config
   delete: (key: string) =>

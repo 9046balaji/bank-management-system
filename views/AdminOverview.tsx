@@ -68,7 +68,7 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [depositDays, setDepositDays] = useState(7);
-  const [demoMode, setDemoMode] = useState(true); // Default to demo mode for hackathon
+  const [demoMode, setDemoMode] = useState(false); // Default to real data
 
   useEffect(() => {
     if (demoMode) {
