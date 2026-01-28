@@ -3,6 +3,75 @@ import { query } from '../db/connection';
 
 const router: Router = express.Router();
 
+// ==========================================
+// STATIC ROUTES (must come BEFORE parameterized routes)
+// ==========================================
+
+// Loan calculator - MUST be before /:id route
+router.post('/calculator', async (req: Request, res: Response) => {
+  try {
+    const { principal, rate, term_months } = req.body;
+
+    if (!principal || !rate || !term_months) {
+      return res.status(400).json({
+        success: false,
+        error: 'Principal, rate, and term_months are required',
+      });
+    }
+
+    const monthlyRate = rate / 100 / 12;
+    let emi: number;
+    
+    if (monthlyRate === 0) {
+      emi = principal / term_months;
+    } else {
+      emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, term_months)) / 
+                  (Math.pow(1 + monthlyRate, term_months) - 1);
+    }
+    
+    const totalPayment = emi * term_months;
+    const totalInterest = totalPayment - principal;
+
+    // Generate amortization schedule
+    const schedule = [];
+    let balance = principal;
+    
+    for (let month = 1; month <= term_months; month++) {
+      const interestPayment = balance * monthlyRate;
+      const principalPayment = emi - interestPayment;
+      balance -= principalPayment;
+      
+      schedule.push({
+        month,
+        emi: parseFloat(emi.toFixed(2)),
+        principal: parseFloat(principalPayment.toFixed(2)),
+        interest: parseFloat(interestPayment.toFixed(2)),
+        balance: parseFloat(Math.max(0, balance).toFixed(2)),
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        emi: parseFloat(emi.toFixed(2)),
+        monthly_payment: parseFloat(emi.toFixed(2)),
+        total_payment: parseFloat(totalPayment.toFixed(2)),
+        total_interest: parseFloat(totalInterest.toFixed(2)),
+        principal: principal,
+        rate: rate,
+        term_months: term_months,
+        schedule: schedule,
+      },
+    });
+  } catch (error) {
+    console.error('Error calculating loan:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to calculate loan',
+    });
+  }
+});
+
 // Get all loans
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -27,7 +96,30 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// Get loan by ID
+// Get loans by user ID - MUST be before /:id route
+router.get('/user/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const result = await query(
+      'SELECT * FROM loans WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount,
+    });
+  } catch (error) {
+    console.error('Error fetching user loans:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch loans',
+    });
+  }
+});
+
+// Get loan by ID - parameterized route comes AFTER static routes
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -55,29 +147,6 @@ router.get('/:id', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch loan',
-    });
-  }
-});
-
-// Get loans by user ID
-router.get('/user/:userId', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const result = await query(
-      'SELECT * FROM loans WHERE user_id = $1 ORDER BY created_at DESC',
-      [userId]
-    );
-
-    res.json({
-      success: true,
-      data: result.rows,
-      count: result.rowCount,
-    });
-  } catch (error) {
-    console.error('Error fetching user loans:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch loans',
     });
   }
 });
@@ -550,64 +619,6 @@ router.post('/applications/:id/ai-analysis', async (req: Request, res: Response)
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to analyze application',
-    });
-  }
-});
-
-// Get loan calculator
-router.post('/calculator', async (req: Request, res: Response) => {
-  try {
-    const { principal, rate, term_months } = req.body;
-
-    if (!principal || !rate || !term_months) {
-      return res.status(400).json({
-        success: false,
-        error: 'Principal, rate, and term_months are required',
-      });
-    }
-
-    const monthlyRate = rate / 100 / 12;
-    const emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, term_months)) / 
-                (Math.pow(1 + monthlyRate, term_months) - 1);
-    
-    const totalPayment = emi * term_months;
-    const totalInterest = totalPayment - principal;
-
-    // Generate amortization schedule
-    const schedule = [];
-    let balance = principal;
-    
-    for (let month = 1; month <= term_months; month++) {
-      const interestPayment = balance * monthlyRate;
-      const principalPayment = emi - interestPayment;
-      balance -= principalPayment;
-      
-      schedule.push({
-        month,
-        emi: emi.toFixed(2),
-        principal: principalPayment.toFixed(2),
-        interest: interestPayment.toFixed(2),
-        balance: Math.max(0, balance).toFixed(2),
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        emi: emi.toFixed(2),
-        total_payment: totalPayment.toFixed(2),
-        total_interest: totalInterest.toFixed(2),
-        principal: principal,
-        rate: rate,
-        term_months: term_months,
-        schedule: schedule,
-      },
-    });
-  } catch (error) {
-    console.error('Error calculating loan:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to calculate loan',
     });
   }
 });
