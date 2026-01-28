@@ -1,33 +1,21 @@
 import express, { Router, Request, Response } from 'express';
 import { query } from '../db/connection';
+import pool from '../db/connection';
+import { idempotencyMiddleware, checkTransactionIdempotency, generateReferenceId } from '../utils/idempotency';
+import { callMLService } from '../utils/circuitBreaker';
+import { 
+  createTransferEntries, 
+  verifyLedgerBalance, 
+  verifyTransactionBalance,
+  getAccountLedgerEntries,
+  getLedgerSummary,
+  generateLedgerTransactionId
+} from '../services/ledgerService';
 
 const router: Router = express.Router();
 
-// ML API Base URL for expense categorization
-const ML_API_URL = process.env.ML_API_URL || 'http://localhost:5001';
-
-// Helper function to categorize expense using ML API
-async function categorizeExpense(description: string): Promise<{ category: string; confidence: number }> {
-  try {
-    const response = await fetch(`${ML_API_URL}/categorize_expense`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description }),
-      signal: AbortSignal.timeout(3000), // 3 second timeout
-    });
-    
-    if (response.ok) {
-      const data = await response.json() as { category?: string; confidence?: number };
-      return {
-        category: data.category || 'Others',
-        confidence: data.confidence || 50,
-      };
-    }
-  } catch (error) {
-    console.log('ML categorization unavailable, using fallback');
-  }
-  
-  // Fallback keyword-based categorization
+// Fallback keyword-based categorization
+function fallbackCategorization(description: string): { category: string; confidence: number } {
   const lowerDesc = description.toLowerCase();
   const categoryKeywords: Record<string, string[]> = {
     'Food & Dining': ['swiggy', 'zomato', 'restaurant', 'cafe', 'food', 'pizza', 'coffee', 'mcdonald'],
@@ -46,6 +34,15 @@ async function categorizeExpense(description: string): Promise<{ category: strin
   }
   
   return { category: 'Others', confidence: 50 };
+}
+
+// Helper function to categorize expense using ML API with circuit breaker
+async function categorizeExpense(description: string): Promise<{ category: string; confidence: number }> {
+  return callMLService<{ category: string; confidence: number }>(
+    '/categorize_expense',
+    { description },
+    () => fallbackCategorization(description)
+  );
 }
 
 // Get all transactions
@@ -241,9 +238,9 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
 });
 
 // ==========================================
-// TRANSFER BETWEEN ACCOUNTS
+// TRANSFER BETWEEN ACCOUNTS (with idempotency support)
 // ==========================================
-router.post('/transfer', async (req: Request, res: Response) => {
+router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Response) => {
   try {
     const {
       from_account_id,
@@ -251,6 +248,7 @@ router.post('/transfer', async (req: Request, res: Response) => {
       amount,
       description = 'Transfer',
       pin,
+      idempotency_key,
     } = req.body;
 
     // Validate required fields
@@ -265,6 +263,23 @@ router.post('/transfer', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Amount must be greater than 0',
+      });
+    }
+
+    // Generate reference ID with idempotency key if provided
+    const referenceId = idempotency_key 
+      ? `TXN-${idempotency_key}` 
+      : generateReferenceId();
+
+    // Check if transaction already exists (database-level idempotency)
+    const existingTx = await checkTransactionIdempotency(referenceId);
+    if (existingTx.exists) {
+      return res.json({
+        success: true,
+        message: 'Transfer already completed (idempotent)',
+        reference_id: referenceId,
+        _idempotent: true,
+        transaction: existingTx.transaction,
       });
     }
 
@@ -347,40 +362,42 @@ router.post('/transfer', async (req: Request, res: Response) => {
       });
     }
 
-    // Generate reference ID
-    const referenceId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-
-    // Perform atomic transfer using transaction
-    await query('BEGIN');
-
+    // Use ledger-based transfer for financial integrity
+    // This creates proper double-entry bookkeeping records
+    const client = await pool.connect();
+    
     try {
-      // Debit sender
-      await query(
-        'UPDATE accounts SET balance = balance - $1 WHERE id = $2',
-        [amount, from_account_id]
+      await client.query('BEGIN');
+
+      // Create ledger entries (double-entry accounting)
+      const ledgerResult = await createTransferEntries(
+        from_account_id,
+        recipient.id,
+        amount,
+        description,
+        client
       );
 
-      // Credit recipient
-      await query(
-        'UPDATE accounts SET balance = balance + $1 WHERE id = $2',
-        [amount, recipient.id]
-      );
+      // Verify the ledger transaction balances (debits = credits)
+      if (!ledgerResult.verified) {
+        throw new Error('Ledger integrity check failed');
+      }
 
-      // Create debit transaction for sender
-      await query(
+      // Create debit transaction for sender (for transaction history)
+      await client.query(
         `INSERT INTO transactions (account_id, type, amount, description, counterparty_name, counterparty_account_number, status, reference_id)
          VALUES ($1, 'TRANSFER', $2, $3, $4, $5, 'COMPLETED', $6)`,
-        [from_account_id, amount, description, null, to_account_number, referenceId]
+        [from_account_id, amount, description, null, to_account_number, ledgerResult.transactionId]
       );
 
-      // Create credit transaction for recipient
-      await query(
+      // Create credit transaction for recipient (for transaction history)
+      await client.query(
         `INSERT INTO transactions (account_id, type, amount, description, counterparty_name, counterparty_account_number, status, reference_id)
          VALUES ($1, 'DEPOSIT', $2, $3, $4, $5, 'COMPLETED', $6)`,
-        [recipient.id, amount, `Transfer from ${sender.account_number}`, null, sender.account_number, referenceId]
+        [recipient.id, amount, `Transfer from ${sender.account_number}`, null, sender.account_number, ledgerResult.transactionId]
       );
 
-      await query('COMMIT');
+      await client.query('COMMIT');
 
       // Get updated sender balance
       const updatedSender = await query(
@@ -391,14 +408,17 @@ router.post('/transfer', async (req: Request, res: Response) => {
       res.json({
         success: true,
         message: 'Transfer completed successfully',
-        reference_id: referenceId,
+        reference_id: ledgerResult.transactionId,
+        ledger_verified: true,
         amount: amount,
         new_balance: updatedSender.rows[0].balance,
         recipient_account: to_account_number,
       });
     } catch (error) {
-      await query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error) {
     console.error('Error processing transfer:', error);

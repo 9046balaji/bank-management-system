@@ -1,6 +1,8 @@
 import express, { Router, Request, Response } from 'express';
 import { query } from '../db/connection';
+import pool from '../db/connection';
 import crypto from 'crypto';
+import { createWithdrawalEntry, generateLedgerTransactionId } from '../services/ledgerService';
 
 const router: Router = express.Router();
 
@@ -269,42 +271,47 @@ router.post('/complete', async (req: Request, res: Response) => {
       });
     }
 
-    const referenceId = `ATM-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-
-    // Perform atomic withdrawal
-    await query('BEGIN');
+    // Use ledger-based withdrawal for financial integrity
+    const client = await pool.connect();
 
     try {
-      // Debit the account
-      await query(
-        'UPDATE accounts SET balance = balance - $1 WHERE id = $2',
-        [atmCode.amount, atmCode.account_id]
+      await client.query('BEGIN');
+
+      // Create ledger entries (double-entry accounting)
+      const ledgerResult = await createWithdrawalEntry(
+        atmCode.account_id,
+        parseFloat(atmCode.amount),
+        `Cardless ATM Withdrawal at ${atm_location}`,
+        client
       );
 
-      // Create transaction record
-      await query(
+      // Create transaction record for history
+      await client.query(
         `INSERT INTO transactions (account_id, type, amount, description, status, reference_id)
          VALUES ($1, 'WITHDRAWAL', $2, $3, 'COMPLETED', $4)`,
-        [atmCode.account_id, atmCode.amount, `Cardless ATM Withdrawal at ${atm_location}`, referenceId]
+        [atmCode.account_id, atmCode.amount, `Cardless ATM Withdrawal at ${atm_location}`, ledgerResult.transactionId]
       );
 
       // Mark ATM code as used
-      await query(
+      await client.query(
         `UPDATE atm_codes SET status = 'USED', used_at = NOW() WHERE id = $1`,
         [code_id]
       );
 
-      await query('COMMIT');
+      await client.query('COMMIT');
 
       res.json({
         success: true,
         message: 'Withdrawal completed successfully',
-        reference_id: referenceId,
+        reference_id: ledgerResult.transactionId,
+        ledger_verified: true,
         amount: atmCode.amount,
       });
     } catch (error) {
-      await query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error) {
     console.error('Error completing withdrawal:', error);

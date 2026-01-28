@@ -359,7 +359,7 @@ Current context: User is logged in to Aura Bank app.`;
 
     // Call Local Ollama Instance
     const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-    const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:1b';
+    const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:4b';
 
     const response = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',

@@ -1,6 +1,11 @@
 import express, { Router, Request, Response } from 'express';
 import { query } from '../db/connection';
 import crypto from 'crypto';
+import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password';
+import { generateTokenPair, verifyAccessToken, verifyRefreshToken, extractTokenFromHeader } from '../utils/jwt';
+import { filterUserData, filterCompleteUserResponse, filterCardsData } from '../utils/dto';
+import { authMiddleware } from '../middleware/authMiddleware';
+import { authRateLimiter, registrationRateLimiter } from '../middleware/rateLimiter';
 
 const router: Router = express.Router();
 
@@ -35,9 +40,10 @@ router.get('/:id', async (req: Request, res: Response) => {
       });
     }
 
+    // Filter sensitive data
     res.json({
       success: true,
-      data: result.rows[0],
+      data: filterUserData(result.rows[0]),
     });
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -157,8 +163,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // AUTHENTICATION ROUTES
 // ==========================================
 
-// Login user
-router.post('/login', async (req: Request, res: Response) => {
+// Login user (rate limited: 5 attempts per 15 minutes)
+router.post('/login', authRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -184,9 +190,10 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const user = userResult.rows[0];
 
-    // In production, use bcrypt.compare() - for demo, simple comparison
-    // Note: password_hash should be hashed with bcrypt in production
-    if (user.password_hash !== password) {
+    // Verify password using bcrypt
+    const isPasswordValid = await comparePassword(password, user.password_hash);
+    
+    if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password',
@@ -229,36 +236,49 @@ router.post('/login', async (req: Request, res: Response) => {
       [user.id]
     );
 
-    // Create session token (simplified - use JWT in production)
-    const sessionToken = `session_${user.id}_${Date.now()}`;
+    // Generate JWT tokens
+    const { accessToken, refreshToken } = generateTokenPair({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
-    // Store session (optional - for session management)
+    // Store refresh token in database for session management (optional)
     try {
       await query(
-        `INSERT INTO user_sessions (user_id, session_token, expires_at)
-         VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '24 hours')`,
-        [user.id, sessionToken]
+        `INSERT INTO user_sessions (user_id, session_token, refresh_token, expires_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '7 days')
+         ON CONFLICT (session_token) DO UPDATE SET last_activity = NOW()`,
+        [user.id, accessToken, refreshToken]
       );
     } catch (sessionError) {
       // Session table might not exist, continue anyway
       console.log('Session storage skipped:', sessionError);
     }
 
-    // Remove sensitive data
-    delete user.password_hash;
+    // Filter sensitive data using DTO
+    const safeUser = filterCompleteUserResponse({
+      ...user,
+      accounts: accountsResult.rows,
+      transactions: transactionsResult.rows,
+      loans: loansResult.rows,
+      cards: cardsResult.rows,
+      tickets: ticketsResult.rows,
+    });
+
+    // Set HttpOnly cookie for refresh token (more secure)
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     res.json({
       success: true,
       data: {
-        user: {
-          ...user,
-          accounts: accountsResult.rows,
-          transactions: transactionsResult.rows,
-          loans: loansResult.rows,
-          cards: cardsResult.rows,
-          tickets: ticketsResult.rows,
-        },
-        token: sessionToken,
+        user: safeUser,
+        token: accessToken, // Access token sent to client
       },
       message: 'Login successful',
     });
@@ -271,8 +291,8 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// Register new user
-router.post('/register', async (req: Request, res: Response) => {
+// Register new user (rate limited: 3 per hour)
+router.post('/register', registrationRateLimiter, async (req: Request, res: Response) => {
   try {
     const { full_name, email, password, phone_number } = req.body;
 
@@ -280,6 +300,16 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Full name, email, and password are required',
+      });
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password does not meet requirements',
+        details: passwordValidation.errors,
       });
     }
 
@@ -296,19 +326,22 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // Create user (in production, hash password with bcrypt)
+    // Hash password with bcrypt
+    const hashedPassword = await hashPassword(password);
+
+    // Create user with hashed password
     const userResult = await query(
       `INSERT INTO users (full_name, email, password_hash, phone_number, kyc_status, role)
        VALUES ($1, $2, $3, $4, 'PENDING', 'USER')
        RETURNING id, full_name, email, role, kyc_status, created_at`,
-      [full_name, email, password, phone_number || null]
+      [full_name, email, hashedPassword, phone_number || null]
     );
 
     const newUser = userResult.rows[0];
 
     res.status(201).json({
       success: true,
-      data: newUser,
+      data: filterUserData(newUser),
       message: 'Registration successful. Please complete KYC verification.',
     });
   } catch (error) {
@@ -353,7 +386,7 @@ router.post('/logout', async (req: Request, res: Response) => {
 router.post('/validate-session', async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader?.replace('Bearer ', '');
+    const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
       return res.status(401).json({
@@ -362,28 +395,17 @@ router.post('/validate-session', async (req: Request, res: Response) => {
       });
     }
 
-    // Extract user ID from token (format: session_<userId>_<timestamp>)
-    const tokenParts = token.split('_');
-    if (tokenParts.length < 2) {
+    // Verify JWT token
+    const decoded = verifyAccessToken(token);
+    
+    if (!decoded) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid token format',
+        error: 'Invalid or expired token',
       });
     }
 
-    const userId = tokenParts[1];
-
-    // Check if session exists and is valid
-    const sessionResult = await query(
-      `SELECT * FROM user_sessions 
-       WHERE session_token = $1 
-       AND expires_at > NOW()
-       AND is_active = true`,
-      [token]
-    ).catch(() => ({ rows: [], rowCount: 0 }));
-
-    // Even if session table doesn't exist, try to get user by ID from token
-    // This is a fallback for simpler session management
+    const userId = decoded.userId;
 
     // Get user data
     const userResult = await query(
@@ -436,26 +458,20 @@ router.post('/validate-session', async (req: Request, res: Response) => {
       [user.id]
     );
 
-    // Update last activity
-    await query(
-      'UPDATE user_sessions SET last_activity = NOW() WHERE session_token = $1',
-      [token]
-    ).catch(() => {});
-
-    // Remove sensitive data
-    delete user.password_hash;
+    // Filter sensitive data using DTO
+    const safeUser = filterCompleteUserResponse({
+      ...user,
+      accounts: accountsResult.rows,
+      transactions: transactionsResult.rows,
+      loans: loansResult.rows,
+      cards: cardsResult.rows,
+      tickets: ticketsResult.rows,
+    });
 
     res.json({
       success: true,
       data: {
-        user: {
-          ...user,
-          accounts: accountsResult.rows,
-          transactions: transactionsResult.rows,
-          loans: loansResult.rows,
-          cards: cardsResult.rows,
-          tickets: ticketsResult.rows,
-        },
+        user: safeUser,
         token: token,
       },
       message: 'Session valid',
@@ -574,15 +590,33 @@ router.post('/:id/complete-kyc', async (req: Request, res: Response) => {
 });
 
 // Update user password
-router.patch('/:id/password', async (req: Request, res: Response) => {
+router.patch('/:id/password', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { current_password, new_password } = req.body;
+
+    // Ensure user can only update their own password (unless admin)
+    if (req.user?.role !== 'ADMIN' && req.user?.userId !== id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied',
+      });
+    }
 
     if (!current_password || !new_password) {
       return res.status(400).json({
         success: false,
         error: 'Current password and new password are required',
+      });
+    }
+
+    // Validate new password strength
+    const passwordValidation = validatePasswordStrength(new_password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password does not meet requirements',
+        details: passwordValidation.errors,
       });
     }
 
@@ -599,17 +633,23 @@ router.patch('/:id/password', async (req: Request, res: Response) => {
       });
     }
 
-    if (userResult.rows[0].password_hash !== current_password) {
+    // Verify current password with bcrypt
+    const isPasswordValid = await comparePassword(current_password, userResult.rows[0].password_hash);
+    
+    if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
         error: 'Current password is incorrect',
       });
     }
 
-    // Update password (in production, hash with bcrypt)
+    // Hash new password with bcrypt
+    const hashedNewPassword = await hashPassword(new_password);
+
+    // Update password
     await query(
       `UPDATE users SET password_hash = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [id, new_password]
+      [id, hashedNewPassword]
     );
 
     res.json({

@@ -18,10 +18,18 @@ const mergeResponse = (base: Record<string, any>, data: unknown): Record<string,
 // ==========================================
 router.post('/fraud/predict', async (req: Request, res: Response) => {
   try {
+    // FIX: Explicitly tell Python to use simplified mode if we lack V1-V28 PCA features
+    // Without these features, the ML model would receive zeros and produce garbage predictions
+    const hasPcaFeatures = req.body.V1 !== undefined && req.body.V1 !== null;
+    const payload = {
+      ...req.body,
+      simplified: !hasPcaFeatures // Force simplified mode if V1 is missing
+    };
+
     const response = await fetch(`${ML_API_URL}/predict_fraud`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(payload), // Send the fixed payload
     });
 
     const data = await response.json();
@@ -372,6 +380,105 @@ router.get('/health', async (req: Request, res: Response) => {
       fraud_model_loaded: false,
       loan_model_loaded: false,
       note: 'ML service unavailable, fallback mode active',
+    });
+  }
+});
+
+// ==========================================
+// AI LEARNING / USER CORRECTIONS
+// ==========================================
+
+/**
+ * Train the AI with a user correction
+ * This allows users to teach the expense categorizer their preferences
+ */
+router.post('/expense/train', async (req: Request, res: Response) => {
+  try {
+    const { description, correct_category } = req.body;
+
+    if (!description || !correct_category) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both description and correct_category are required',
+      });
+    }
+
+    const response = await fetch(`${ML_API_URL}/train_correction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, correct_category }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    res.json(mergeResponse({ success: true }, data));
+  } catch (error) {
+    console.error('ML API Error (Train Correction):', error);
+    res.status(503).json({
+      success: false,
+      error: 'ML service unavailable. Corrections will be applied when service is restored.',
+    });
+  }
+});
+
+/**
+ * Get all user corrections
+ */
+router.get('/expense/corrections', async (req: Request, res: Response) => {
+  try {
+    const response = await fetch(`${ML_API_URL}/get_corrections`, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+    res.json(mergeResponse({ success: true }, data));
+  } catch (error) {
+    console.error('ML API Error (Get Corrections):', error);
+    res.json({
+      success: true,
+      corrections: {},
+      total: 0,
+      note: 'ML service unavailable',
+    });
+  }
+});
+
+/**
+ * Delete a specific user correction
+ */
+router.post('/expense/corrections/delete', async (req: Request, res: Response) => {
+  try {
+    const { description } = req.body;
+
+    if (!description) {
+      return res.status(400).json({
+        success: false,
+        error: 'Description is required',
+      });
+    }
+
+    const response = await fetch(`${ML_API_URL}/delete_correction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    res.json(mergeResponse({ success: true }, data));
+  } catch (error) {
+    console.error('ML API Error (Delete Correction):', error);
+    res.status(503).json({
+      success: false,
+      error: 'ML service unavailable',
     });
   }
 });
