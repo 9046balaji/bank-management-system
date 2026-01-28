@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { UserState, NotificationPreferences } from '../types';
 import { userApi } from '../src/services/api';
 
@@ -24,6 +24,89 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  
+  // Photo upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+
+  const handlePhotoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB');
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string);
+      setShowPhotoModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!photoPreview || !user.id) return;
+
+    setUploadingPhoto(true);
+    try {
+      // For now, we'll store the base64 image directly
+      // In production, you'd upload to a file storage service
+      const response = await userApi.update(user.id, {
+        avatar: photoPreview,
+      });
+
+      if (response.success) {
+        onUpdate({ avatar: photoPreview });
+        setShowPhotoModal(false);
+        setPhotoPreview(null);
+      } else {
+        alert('Failed to update profile photo');
+      }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      alert('Failed to upload photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!user.id) return;
+
+    setUploadingPhoto(true);
+    try {
+      const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=135bec&color=fff&size=200`;
+      const response = await userApi.update(user.id, {
+        avatar: defaultAvatar,
+      });
+
+      if (response.success) {
+        onUpdate({ avatar: defaultAvatar });
+        setShowPhotoModal(false);
+        setPhotoPreview(null);
+      }
+    } catch (error) {
+      console.error('Error removing photo:', error);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
   
   const handleToggle = async (channel: keyof NotificationPreferences, type: keyof NotificationPreferences['email']) => {
     const updatedPrefs = { ...user.notificationPreferences };
@@ -107,6 +190,65 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in duration-500">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
+      {/* Photo Upload Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-8 space-y-6">
+            <h3 className="text-xl font-bold text-center">Update Profile Photo</h3>
+            <div className="flex justify-center">
+              <div className="size-40 rounded-full overflow-hidden border-4 border-primary shadow-lg">
+                <img 
+                  src={photoPreview || user.avatar} 
+                  className="size-full object-cover" 
+                  alt="Preview" 
+                />
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => { setShowPhotoModal(false); setPhotoPreview(null); }}
+                className="flex-1 h-12 border border-slate-200 dark:border-slate-800 rounded-xl font-bold"
+              >
+                Cancel
+              </button>
+              {photoPreview && (
+                <button
+                  onClick={handlePhotoUpload}
+                  disabled={uploadingPhoto}
+                  className="flex-1 h-12 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                >
+                  {uploadingPhoto ? (
+                    <span className="material-symbols-outlined animate-spin">refresh</span>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">check</span>
+                      Save Photo
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleRemovePhoto}
+              disabled={uploadingPhoto}
+              className="w-full h-10 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-medium text-sm flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">delete</span>
+              Remove Photo
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Password Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -177,7 +319,11 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
       <div className="bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-8 relative overflow-hidden">
         <div className="size-32 bg-primary/10 rounded-3xl flex items-center justify-center relative group">
           <img src={user.avatar} className="size-full rounded-3xl object-cover" alt="" />
-          <button className="absolute bottom-2 right-2 size-8 bg-white dark:bg-slate-700 rounded-lg shadow-md flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+          <button 
+            onClick={handlePhotoClick}
+            className="absolute bottom-2 right-2 size-8 bg-white dark:bg-slate-700 rounded-lg shadow-md flex items-center justify-center text-primary group-hover:scale-110 transition-transform hover:bg-primary hover:text-white"
+            title="Change profile photo"
+          >
              <span className="material-symbols-outlined text-sm">photo_camera</span>
           </button>
         </div>

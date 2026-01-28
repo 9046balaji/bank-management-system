@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserState } from '../types';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, LineChart, Line, Tooltip } from 'recharts';
 import { analyticsApi } from '../src/services/api';
 
 interface AdminStats {
@@ -24,6 +24,24 @@ interface ActivityItem {
   time: string;
   label: string;
   description: string;
+}
+
+interface LoanPayment {
+  id: string;
+  loan_reference_id: string;
+  borrower_name: string;
+  amount: number;
+  interest_amount: number;
+  principal_amount: number;
+  loan_type: string;
+  paid_at: string;
+}
+
+interface LoanPaymentStats {
+  total_payments: number;
+  total_collected: number;
+  total_interest_collected: number;
+  total_principal_collected: number;
 }
 
 interface AdminOverviewProps {
@@ -69,6 +87,9 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
   const [error, setError] = useState('');
   const [depositDays, setDepositDays] = useState(7);
   const [demoMode, setDemoMode] = useState(false); // Default to real data
+  const [loanPayments, setLoanPayments] = useState<LoanPayment[]>([]);
+  const [loanPaymentStats, setLoanPaymentStats] = useState<LoanPaymentStats | null>(null);
+  const [showLoanPayments, setShowLoanPayments] = useState(false);
 
   useEffect(() => {
     if (demoMode) {
@@ -76,6 +97,7 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
       loadDemoData();
     } else {
       fetchData();
+      fetchLoanPayments();
     }
   }, [demoMode]);
 
@@ -92,7 +114,28 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
     setStats(DEMO_STATS);
     setDepositData(DEMO_DEPOSIT_DATA);
     setActivity(DEMO_ACTIVITY);
+    setLoanPaymentStats({
+      total_payments: 156,
+      total_collected: 2450000,
+      total_interest_collected: 350000,
+      total_principal_collected: 2100000,
+    });
     setLoading(false);
+  };
+
+  const fetchLoanPayments = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/admin/ai/loans/payments?limit=10', {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (data.success) {
+        setLoanPayments(data.data);
+        setLoanPaymentStats(data.stats);
+      }
+    } catch (err) {
+      console.error('Error fetching loan payments:', err);
+    }
   };
 
   const fetchData = async () => {
@@ -272,6 +315,99 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
                )}
             </div>
          </div>
+      </div>
+
+      {/* Loan Payments & Interest Section */}
+      <div className="bg-surface-light dark:bg-surface-dark rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div 
+          className="px-6 py-5 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all"
+          onClick={() => setShowLoanPayments(!showLoanPayments)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="size-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-white">
+              <span className="material-symbols-outlined">payments</span>
+            </div>
+            <div>
+              <h3 className="font-bold">Loan Payments & Interest</h3>
+              <p className="text-xs text-slate-500">Track EMI collections and interest revenue</p>
+            </div>
+          </div>
+          <span className={`material-symbols-outlined transition-transform ${showLoanPayments ? 'rotate-180' : ''}`}>
+            expand_more
+          </span>
+        </div>
+
+        {/* Stats Row */}
+        {loanPaymentStats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 border-b border-slate-50 dark:border-slate-800">
+            <div className="text-center">
+              <p className="text-xs text-slate-500 uppercase font-bold">Total Payments</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white">{loanPaymentStats.total_payments}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-500 uppercase font-bold">Total Collected</p>
+              <p className="text-2xl font-black text-emerald-600">{formatCurrency(loanPaymentStats.total_collected)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-500 uppercase font-bold">Interest Revenue</p>
+              <p className="text-2xl font-black text-amber-600">{formatCurrency(loanPaymentStats.total_interest_collected)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-500 uppercase font-bold">Principal Recovered</p>
+              <p className="text-2xl font-black text-blue-600">{formatCurrency(loanPaymentStats.total_principal_collected)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Payment List */}
+        {showLoanPayments && (
+          <div className="p-6">
+            <h4 className="font-bold text-sm mb-4">Recent Loan Payments</h4>
+            {loanPayments.length > 0 ? (
+              <div className="space-y-3">
+                {loanPayments.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                    <div className="flex items-center gap-4">
+                      <div className="size-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                        <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm">{payment.borrower_name}</p>
+                        <p className="text-xs text-slate-500">
+                          {payment.loan_reference_id || 'Loan'} • {payment.loan_type || 'Personal Loan'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-emerald-600">{formatCurrency(payment.amount)}</p>
+                      <div className="flex gap-3 text-xs text-slate-500">
+                        {payment.principal_amount && (
+                          <span>P: {formatCurrency(payment.principal_amount)}</span>
+                        )}
+                        {payment.interest_amount && (
+                          <span className="text-amber-600">I: {formatCurrency(payment.interest_amount)}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {new Date(payment.paid_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <span className="material-symbols-outlined text-4xl mb-2">payments</span>
+                <p>No loan payments recorded yet</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

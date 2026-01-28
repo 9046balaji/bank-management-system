@@ -59,6 +59,7 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
     { role: 'assistant', content: 'Hello! I\'m Aura, your AI banking assistant. How can I help you today? 🏦' }
   ]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [useWebSearch, setUseWebSearch] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll chat to bottom
@@ -78,17 +79,26 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
     setChatLoading(true);
 
     try {
-      const response = await supportApi.chat({
-        message: userMsg.content,
-        history: updatedHistory.slice(-8), // Send last 8 messages for context
-        userId: user.id
-      });
+      // Choose endpoint based on web search toggle
+      const response = useWebSearch 
+        ? await supportApi.chatLive({
+            message: userMsg.content,
+            userId: user.id,
+            context: `User: ${user.name}`
+          })
+        : await supportApi.chat({
+            message: userMsg.content,
+            history: updatedHistory.slice(-8),
+            userId: user.id
+          });
 
       if (response.success) {
-        const data = response as { success: boolean; reply?: string; isOffline?: boolean };
+        const data = response as { success: boolean; reply?: string; isOffline?: boolean; source?: string };
+        const replyContent = data.reply || "I'm sorry, I couldn't process that request.";
+        const webIndicator = data.source === 'live_web_search' ? ' 🌐' : '';
         setChatHistory(prev => [...prev, {
           role: 'assistant',
-          content: data.reply || "I'm sorry, I couldn't process that request."
+          content: replyContent + webIndicator
         }]);
       } else {
         throw new Error('Chat request failed');
@@ -105,7 +115,11 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
   };
 
   // Quick action buttons for chat
-  const quickActions = [
+  const quickActions = useWebSearch ? [
+    { label: '📊 RBI Rates', message: 'What are the current RBI repo rates?' },
+    { label: '📰 Banking News', message: 'Latest banking news in India' },
+    { label: '💹 FD Rates', message: 'Best fixed deposit rates in India today' },
+  ] : [
     { label: 'Block my card', message: 'How do I block my card?' },
     { label: 'Loan status', message: 'How can I check my loan status?' },
     { label: 'Transfer help', message: 'How do I transfer money?' },
@@ -504,16 +518,39 @@ const Support: React.FC<SupportProps> = ({ user, onNewTicket }) => {
               </div>
               <div>
                 <h4 className="font-bold text-xl">Aura AI Assistant</h4>
-                <p className="text-sm text-white/70">Banking Support • Online</p>
+                <p className="text-sm text-white/70">Banking Support • {useWebSearch ? '🌐 Web Search' : 'Online'}</p>
               </div>
             </div>
-            <button 
-              onClick={() => setShowChat(false)} 
-              className="size-10 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Web Search Toggle */}
+              <button
+                onClick={() => setUseWebSearch(!useWebSearch)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  useWebSearch 
+                    ? 'bg-white text-primary' 
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+                title={useWebSearch ? 'Web search enabled' : 'Enable web search for live data'}
+              >
+                <span className="material-symbols-outlined text-sm">public</span>
+                <span className="text-xs">{useWebSearch ? 'Live' : 'Web'}</span>
+              </button>
+              <button 
+                onClick={() => setShowChat(false)} 
+                className="size-10 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
           </div>
+
+          {/* Web Search Banner */}
+          {useWebSearch && (
+            <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800 flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+              <span className="material-symbols-outlined text-sm">travel_explore</span>
+              <span>Live web search enabled - Get real-time RBI rates, news & more</span>
+            </div>
+          )}
 
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">

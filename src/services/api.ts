@@ -116,6 +116,7 @@ export const userApi = {
       kyc_status?: string;
       notification_preferences?: object;
       settings?: object;
+      avatar?: string;
     }
   ) =>
     request(`/users/${id}`, {
@@ -263,6 +264,7 @@ export const transactionApi = {
     }),
 
   // Transfer between accounts (with idempotency support)
+  // Supports both internal (Aura Bank) and external (IMPS/NEFT) transfers
   transfer: (transferData: {
     from_account_id: string;
     to_account_number: string;
@@ -270,6 +272,10 @@ export const transactionApi = {
     description?: string;
     pin?: string;
     idempotency_key?: string;
+    // External bank transfer fields
+    destination_bank?: string;
+    ifsc_code?: string;
+    transfer_type?: 'INTERNAL' | 'DOMESTIC' | 'INTERNATIONAL';
   }) =>
     requestWithIdempotency('/transactions/transfer', {
       method: 'POST',
@@ -530,6 +536,13 @@ export const supportApi = {
   // Chat with AI banking assistant (Ollama)
   chat: (data: { message: string; userId?: string; history?: { role: string; content: string }[] }) =>
     request('/support/chat', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Chat with AI + Live Web Search (DuckDuckGo)
+  chatLive: (data: { message: string; userId?: string; context?: string }) =>
+    request('/support/chat/live', {
       method: 'POST',
       body: JSON.stringify(data),
     }),

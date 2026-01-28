@@ -5,3 +5,4 @@
 
 export { AuthProvider, useAuth } from './AuthContext';
 export { BankingProvider, useBanking } from './BankingContext';
+export { SystemConfigProvider, useSystemConfig } from './SystemConfigContext';

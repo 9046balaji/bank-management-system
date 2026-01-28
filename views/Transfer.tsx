@@ -143,14 +143,24 @@ const Transfer: React.FC<TransferProps> = ({ user, onTransfer }) => {
     }
 
     try {
-      // Call the actual API
-      const response = await transactionApi.transfer({
+      // Prepare transfer data
+      const transferPayload: any = {
         from_account_id: accountId,
         to_account_number: recipient,
         amount: transferAmount,
         description: `Transfer to ${recipientName} (${bankType === 'AURA' ? 'Aura Bank' : otherBankName || 'Other Bank'})`,
         pin: pinCode,
-      });
+      };
+
+      // Add external bank fields for non-Aura transfers
+      if (bankType === 'OTHER') {
+        transferPayload.destination_bank = otherBankName;
+        transferPayload.ifsc_code = otherBankIFSC;
+        transferPayload.transfer_type = 'DOMESTIC';
+      }
+
+      // Call the actual API
+      const response = await transactionApi.transfer(transferPayload);
 
       if (response.success) {
         // Generate reference ID from response or create one

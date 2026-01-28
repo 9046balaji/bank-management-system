@@ -22,6 +22,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, role }) => {
     { id: View.ADMIN_OVERVIEW, label: 'Overview', icon: 'analytics' },
     { id: View.ADMIN_LOANS, label: 'Loan Approvals', icon: 'approval_delegation' },
     { id: View.ADMIN_CARDS, label: 'Card Approvals', icon: 'credit_card' },
+    { id: View.ADMIN_PAYMENTS, label: 'Payment Tracking', icon: 'account_balance' },
+    { id: View.ADMIN_FEEDBACK, label: 'Feedback', icon: 'feedback' },
+    { id: View.ADMIN_CHAT, label: 'AI Assistant', icon: 'smart_toy' },
     { id: View.ADMIN_CONFIG, label: 'System Config', icon: 'settings' },
   ];
 

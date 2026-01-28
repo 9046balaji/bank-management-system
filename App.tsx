@@ -23,6 +23,9 @@ import AdminOverview from './views/AdminOverview';
 import AdminLoanApprovals from './views/AdminLoanApprovals';
 import AdminCardApprovals from './views/AdminCardApprovals';
 import AdminSystemConfig from './views/AdminSystemConfig';
+import AdminFeedback from './views/AdminFeedback';
+import AdminChat from './views/AdminChat';
+import AdminPaymentTracking from './views/AdminPaymentTracking';
 
 // Session storage keys
 const SESSION_TOKEN_KEY = 'aura_session_token';
@@ -365,6 +368,9 @@ const App: React.FC = () => {
       case View.ADMIN_OVERVIEW: return <AdminOverview user={user} />;
       case View.ADMIN_LOANS: return <AdminLoanApprovals user={user} />;
       case View.ADMIN_CARDS: return <AdminCardApprovals user={user} />;
+      case View.ADMIN_PAYMENTS: return <AdminPaymentTracking user={user} />;
+      case View.ADMIN_FEEDBACK: return <AdminFeedback user={user} />;
+      case View.ADMIN_CHAT: return <AdminChat user={user} />;
       case View.ADMIN_CONFIG: return <AdminSystemConfig user={user} onUpdate={(s) => handleUpdateUser({ settings: { ...user.settings, ...s } })} />;
       default: return <Dashboard user={user} setView={setCurrentView} />;
     }

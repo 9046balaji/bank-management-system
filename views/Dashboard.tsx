@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { UserState, View, Transaction } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { analyticsApi, transactionApi, cardApi } from '../src/services/api';
+import { useSystemConfig } from '../src/contexts';
 
 interface DashboardProps {
   user: UserState;
@@ -143,6 +144,7 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
+  const { formatCurrency, currencySymbol } = useSystemConfig();
   const [filterType, setFilterType] = useState<'ALL' | Transaction['type']>('ALL');
   const [sortOrder, setSortOrder] = useState<'DATE_DESC' | 'DATE_ASC' | 'AMT_DESC' | 'AMT_ASC'>('DATE_DESC');
   const [chartData, setChartData] = useState<ChartDataItem[]>([
@@ -338,13 +340,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
           </div>
           <div className="space-y-1">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Available Balance</p>
-            <p className="text-lg font-bold text-emerald-600">${user.balance.toLocaleString()}</p>
+            <p className="text-lg font-bold text-emerald-600">{formatCurrency(user.balance)}</p>
           </div>
           <div className="space-y-1">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Active Loan</p>
             <p className="text-lg font-bold text-amber-600">
               {user.loans && user.loans.length > 0 
-                ? `$${user.loans.filter(l => l.status === 'ACTIVE').reduce((sum, l) => sum + l.amount, 0).toLocaleString()}`
+                ? formatCurrency(user.loans.filter(l => l.status === 'ACTIVE').reduce((sum, l) => sum + l.amount, 0))
                 : 'No Active Loans'}
             </p>
           </div>
@@ -358,15 +360,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
             <span className="material-symbols-outlined text-[120px]">account_balance_wallet</span>
           </div>
           <p className="text-sm font-bold uppercase tracking-widest text-blue-100 mb-2">Total Available Balance</p>
-          <h3 className="text-5xl font-black mb-8">${user.balance.toLocaleString()}</h3>
+          <h3 className="text-5xl font-black mb-8">{formatCurrency(user.balance)}</h3>
           <div className="flex gap-8">
             <div>
               <p className="text-xs font-bold text-blue-200 uppercase mb-1">Monthly Income</p>
-              <p className="text-xl font-bold">+${stats.monthlyIncome.toLocaleString()}</p>
+              <p className="text-xl font-bold">+{formatCurrency(stats.monthlyIncome)}</p>
             </div>
             <div>
               <p className="text-xs font-bold text-blue-200 uppercase mb-1">Monthly Expense</p>
-              <p className="text-xl font-bold">-${stats.monthlyExpense.toLocaleString()}</p>
+              <p className="text-xl font-bold">-{formatCurrency(stats.monthlyExpense)}</p>
             </div>
           </div>
         </div>
@@ -393,7 +395,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-xs font-bold text-slate-400">Total</span>
-              <span className="text-xl font-black">${(chartData.reduce((sum, d) => sum + d.value, 0) / 1000).toFixed(1)}k</span>
+              <span className="text-xl font-black">{currencySymbol}{(chartData.reduce((sum, d) => sum + d.value, 0) / 1000).toFixed(1)}k</span>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-4">
@@ -401,7 +403,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
                <div key={i} className="text-center">
                  <div className="size-2 rounded-full mx-auto mb-1" style={{backgroundColor: COLORS[i]}}></div>
                  <p className="text-[10px] font-bold text-slate-500 uppercase">{d.name}</p>
-                 <p className="text-xs font-bold">${(d.value/1000).toFixed(1)}k</p>
+                 <p className="text-xs font-bold">{currencySymbol}{(d.value/1000).toFixed(1)}k</p>
                </div>
              ))}
           </div>
@@ -458,7 +460,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-black ${tx.type === 'DEPOSIT' ? 'text-success' : ''}`}>
-                      {tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toLocaleString()}
+                      {tx.type === 'DEPOSIT' ? '+' : '-'}{formatCurrency(tx.amount)}
                     </p>
                     <p className="text-[10px] font-bold uppercase text-slate-400">{tx.status}</p>
                   </div>

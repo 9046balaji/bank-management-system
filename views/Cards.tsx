@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserState } from '../types';
 import { cardApi, transactionApi, userApi } from '../src/services/api';
+import { useSystemConfig } from '../src/contexts';
 
 interface CardsProps {
   user: UserState;
@@ -58,6 +59,7 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'warning'; 
 };
 
 const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
+  const { formatCurrency, currencySymbol } = useSystemConfig();
   const [cards, setCards] = useState<CardData[]>([]);
   const [card, setCard] = useState<CardData | null>(null);
   const [activeTab, setActiveTab] = useState<'DEBIT' | 'CREDIT'>('DEBIT');
@@ -342,7 +344,7 @@ const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
                       <div className={`size-10 rounded-full flex items-center justify-center ${tx.type === 'DEPOSIT' ? 'bg-green-100 text-green-600' : tx.type === 'TRANSFER' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}><span className="material-symbols-outlined text-sm">{tx.type === 'DEPOSIT' ? 'arrow_downward' : tx.type === 'TRANSFER' ? 'sync_alt' : 'arrow_upward'}</span></div>
                       <div><p className="font-bold text-sm">{tx.description || tx.type}</p><p className="text-xs text-slate-500">{formatDate(tx.date)}</p></div>
                     </div>
-                    <div className="text-right"><p className={`font-bold ${tx.type === 'DEPOSIT' ? 'text-green-600' : 'text-slate-900 dark:text-white'}`}>{tx.type === 'DEPOSIT' ? '+' : '-'}${tx.amount.toLocaleString()}</p><p className={`text-xs ${tx.status === 'COMPLETED' ? 'text-green-500' : 'text-yellow-500'}`}>{tx.status}</p></div>
+                    <div className="text-right"><p className={`font-bold ${tx.type === 'DEPOSIT' ? 'text-green-600' : 'text-slate-900 dark:text-white'}`}>{tx.type === 'DEPOSIT' ? '+' : '-'}{formatCurrency(tx.amount)}</p><p className={`text-xs ${tx.status === 'COMPLETED' ? 'text-green-500' : 'text-yellow-500'}`}>{tx.status}</p></div>
                   </div>
                 ))}</div>
               )}
@@ -542,15 +544,15 @@ const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
                 <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">Credit Limit</span>
-                    <span className="font-bold text-lg">${(card.credit_limit || 5000).toLocaleString()}</span>
+                    <span className="font-bold text-lg">{formatCurrency(card.credit_limit || 5000)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">Available Credit</span>
-                    <span className="font-bold text-lg text-green-600">${(card.available_credit || 4500).toLocaleString()}</span>
+                    <span className="font-bold text-lg text-green-600">{formatCurrency(card.available_credit || 4500)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">Current Balance</span>
-                    <span className="font-bold text-lg text-amber-600">${(card.current_balance || 500).toLocaleString()}</span>
+                    <span className="font-bold text-lg text-amber-600">{formatCurrency(card.current_balance || 500)}</span>
                   </div>
                   <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div 
@@ -559,7 +561,7 @@ const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
                     ></div>
                   </div>
                   <div className="flex justify-between text-xs text-slate-500">
-                    <span>Min Payment: ${(card.minimum_payment || 25).toLocaleString()}</span>
+                    <span>Min Payment: {formatCurrency(card.minimum_payment || 25)}</span>
                     <span>Due: {card.due_date || 15}th of month</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
@@ -571,58 +573,52 @@ const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
                   </div>
                 </div>
               )}
+
+              {/* Debit Card Specific Info */}
+              {activeTab === 'DEBIT' && card && (
+                <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-500">Account Balance</span>
+                    <span className="font-bold text-lg text-green-600">{formatCurrency(user.balance || 0)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-500">Daily Limit</span>
+                    <span className="font-bold text-lg">{formatCurrency(card.daily_limit || 5000)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-500">Daily Spent</span>
+                    <span className="font-bold text-lg text-amber-600">{formatCurrency(0)}</span>
+                  </div>
+                  <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full transition-all"
+                      style={{ width: '0%' }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>Remaining: {formatCurrency(card.daily_limit || 5000)}</span>
+                    <span>Resets at midnight</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className={`p-3 rounded-xl ${card.is_online_enabled ? 'bg-green-50 dark:bg-green-900/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                      <span className={`flex items-center gap-2 text-sm font-medium ${card.is_online_enabled ? 'text-green-700 dark:text-green-400' : 'text-slate-500'}`}>
+                        <span className="material-symbols-outlined text-sm">{card.is_online_enabled ? 'check_circle' : 'cancel'}</span>
+                        Online Payments
+                      </span>
+                    </div>
+                    <div className={`p-3 rounded-xl ${card.is_international_enabled ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                      <span className={`flex items-center gap-2 text-sm font-medium ${card.is_international_enabled ? 'text-blue-700 dark:text-blue-400' : 'text-slate-500'}`}>
+                        <span className="material-symbols-outlined text-sm">{card.is_international_enabled ? 'check_circle' : 'cancel'}</span>
+                        International
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
           {card && card?.status !== 'BLOCKED' && !localSettings.cardFrozen && <button onClick={() => setShowBlockModal(true)} className="w-full h-14 bg-red-500 hover:bg-red-600 text-white font-bold rounded-2xl shadow-lg shadow-red-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"><span className="material-symbols-outlined">block</span>Block Card 🚫</button>}
-          
-          {/* Card Summary Section */}
-          {card && (
-            <div className="bg-surface-light dark:bg-surface-dark p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-              <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">info</span>
-                Card Summary
-              </h4>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                      <span className="material-symbols-outlined text-sm text-blue-600">atm</span>
-                    </div>
-                    <span className="text-sm text-slate-600 dark:text-slate-400">Max ATM Limit</span>
-                  </div>
-                  <span className="font-bold">$2,500/day</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                      <span className="material-symbols-outlined text-sm text-green-600">shopping_cart</span>
-                    </div>
-                    <span className="text-sm text-slate-600 dark:text-slate-400">Max Online Purchase</span>
-                  </div>
-                  <span className="font-bold">$5,000/day</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                      <span className="material-symbols-outlined text-sm text-purple-600">point_of_sale</span>
-                    </div>
-                    <span className="text-sm text-slate-600 dark:text-slate-400">Max POS Limit</span>
-                  </div>
-                  <span className="font-bold">$10,000/day</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <div className="flex items-center gap-3">
-                    <div className="size-8 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
-                      <span className="material-symbols-outlined text-sm text-amber-600">account_balance</span>
-                    </div>
-                    <span className="text-sm text-slate-600 dark:text-slate-400">Linked Account</span>
-                  </div>
-                  <span className="font-bold font-mono text-sm">{user.accountNumber || 'N/A'}</span>
-                </div>
-              </div>
-            </div>
-          )}
           
           <div className="grid grid-cols-2 gap-4">
             {[{ icon: 'pin', label: 'Set PIN', action: () => setShowPinModal(true), disabled: card?.status === 'BLOCKED' || !card }, { icon: 'report', label: 'Report Lost', action: handleReportLost, disabled: card?.status === 'BLOCKED' || !card }, { icon: 'restart_alt', label: 'Replace', action: () => showToast('Replacement request submitted!', 'success'), disabled: !card }, { icon: 'description', label: 'Statements', action: handleOpenStatements, disabled: !card }].map((btn, i) => (
@@ -633,9 +629,9 @@ const Cards: React.FC<CardsProps> = ({ user, onUpdate }) => {
         <div className="lg:col-span-7 space-y-8">
           <div className="bg-surface-light dark:bg-surface-dark p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
             <div className="space-y-6">
-              <div className="flex justify-between items-center"><h3 className="text-lg font-bold">Daily Spending Limit</h3><span className="text-2xl font-black text-primary">${localSettings.dailyLimit}</span></div>
+              <div className="flex justify-between items-center"><h3 className="text-lg font-bold">Daily Spending Limit</h3><span className="text-2xl font-black text-primary">{formatCurrency(localSettings.dailyLimit)}</span></div>
               <input type="range" min="500" max="10000" step="500" value={localSettings.dailyLimit} onChange={(e) => handleSettingChange('dailyLimit', parseInt(e.target.value))} className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary" disabled={updating || card?.status === 'BLOCKED'} />
-              <div className="flex justify-between text-xs font-bold text-slate-400"><span>$500</span><span>$10,000</span></div>
+              <div className="flex justify-between text-xs font-bold text-slate-400"><span>{currencySymbol}500</span><span>{currencySymbol}10,000</span></div>
             </div>
             <div className="h-px bg-slate-100 dark:bg-slate-800"></div>
             <div className="space-y-4">
