@@ -153,6 +153,36 @@ export const runMigrations = async () => {
       END $$;
     `);
 
+    // Add card_type column to cards table if it doesn't exist
+    const checkCardType = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'cards' AND column_name = 'card_type'
+    `);
+    if (checkCardType.rowCount === 0) {
+      await pool.query(`ALTER TABLE cards ADD COLUMN card_type VARCHAR(20) DEFAULT 'DEBIT'`);
+      console.log('Added card_type column to cards table');
+    }
+
+    // Add credit_limit column to cards table if it doesn't exist
+    const checkCreditLimit = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'cards' AND column_name = 'credit_limit'
+    `);
+    if (checkCreditLimit.rowCount === 0) {
+      await pool.query(`ALTER TABLE cards ADD COLUMN credit_limit DECIMAL(15, 2) DEFAULT 0`);
+      console.log('Added credit_limit column to cards table');
+    }
+
+    // Add available_credit column to cards table if it doesn't exist
+    const checkAvailableCredit = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'cards' AND column_name = 'available_credit'
+    `);
+    if (checkAvailableCredit.rowCount === 0) {
+      await pool.query(`ALTER TABLE cards ADD COLUMN available_credit DECIMAL(15, 2) DEFAULT 0`);
+      console.log('Added available_credit column to cards table');
+    }
+
     // Create card_applications table if it doesn't exist
     await pool.query(`
       CREATE TABLE IF NOT EXISTS card_applications (
@@ -240,6 +270,65 @@ export const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_config_audit_created_at ON config_audit_log(created_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_config_audit_config_key ON config_audit_log(config_key)`);
     console.log('Config audit log table ready');
+
+    // Create feedback table for user feedback
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS feedback (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        type VARCHAR(50) NOT NULL DEFAULT 'OTHER',
+        category VARCHAR(50),
+        subject VARCHAR(200) NOT NULL,
+        description TEXT NOT NULL,
+        rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+        status VARCHAR(50) DEFAULT 'NEW',
+        admin_response TEXT,
+        responded_at TIMESTAMP WITH TIME ZONE,
+        responded_by UUID REFERENCES users(id),
+        is_public BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_type ON feedback(type)`);
+    console.log('Feedback table ready');
+
+    // Create feedback_insights table for AI-generated summaries
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS feedback_insights (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        admin_id UUID REFERENCES users(id),
+        source_feedback_ids UUID[],
+        summary_text TEXT NOT NULL,
+        sentiment VARCHAR(20),
+        key_issues TEXT[],
+        action_items TEXT[],
+        model_used VARCHAR(100) DEFAULT 'gemma3',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_insights_admin ON feedback_insights(admin_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_insights_created ON feedback_insights(created_at DESC)`);
+    console.log('Feedback insights table ready');
+
+    // Create loan_payments table for tracking EMI payments
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS loan_payments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        loan_id UUID NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+        amount DECIMAL(15, 2) NOT NULL,
+        principal_amount DECIMAL(15, 2),
+        interest_amount DECIMAL(15, 2),
+        payment_method VARCHAR(50) DEFAULT 'AUTO_DEBIT',
+        reference_number VARCHAR(50),
+        paid_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_loan_payments_loan_id ON loan_payments(loan_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_loan_payments_paid_at ON loan_payments(paid_at DESC)`);
+    console.log('Loan payments table ready');
 
     console.log('Database migrations completed');
   } catch (error) {

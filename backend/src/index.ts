@@ -14,6 +14,8 @@ import analyticsRoutes from './routes/analytics';
 import configRoutes from './routes/config';
 import mlRoutes from './routes/ml';
 import ledgerRoutes from './routes/ledger';
+import adminAiRoutes from './routes/admin-ai';
+import chatRoutes from './routes/chat';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware/errorMiddleware';
 import { authMiddleware, adminMiddleware } from './middleware/authMiddleware';
 import { getAllCircuitBreakerStats } from './utils/circuitBreaker';
@@ -118,6 +120,8 @@ app.use('/api/ml', authMiddleware, mlRateLimiter, mlRoutes);
 // ==========================================
 app.use('/api/config', authMiddleware, adminMiddleware, configRoutes);
 app.use('/api/ledger', authMiddleware, adminMiddleware, ledgerRoutes); // Ledger audit - admin only
+app.use('/api/admin/ai', authMiddleware, adminMiddleware, adminAiRoutes); // Admin AI & Feedback - admin only
+app.use('/api/chat', authMiddleware, adminMiddleware, chatRoutes); // Live web search chat - admin only
 
 // 404 handler
 app.use(notFoundHandler);

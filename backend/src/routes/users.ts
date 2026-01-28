@@ -97,7 +97,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { full_name, phone_number, address, kyc_status } = req.body;
+    const { full_name, phone_number, address, kyc_status, avatar } = req.body;
 
     const result = await query(
       `UPDATE users 
@@ -105,10 +105,11 @@ router.put('/:id', async (req: Request, res: Response) => {
            phone_number = COALESCE($3, phone_number),
            address = COALESCE($4, address),
            kyc_status = COALESCE($5, kyc_status),
+           avatar = COALESCE($6, avatar),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
-       RETURNING id, full_name, email, role, kyc_status, updated_at`,
-      [id, full_name, phone_number, address, kyc_status]
+       RETURNING id, full_name, email, role, kyc_status, avatar, updated_at`,
+      [id, full_name, phone_number, address, kyc_status, avatar]
     );
 
     if (result.rowCount === 0) {

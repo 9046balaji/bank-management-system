@@ -415,6 +415,52 @@ Current context: User is logged in to Aura Bank app.`;
   }
 });
 
+// ==========================================
+// AI CHATBOT WITH LIVE WEB SEARCH
+// ==========================================
+router.post('/chat/live', async (req: Request, res: Response) => {
+  try {
+    const { message, userId, context } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Message is required'
+      });
+    }
+
+    // Import the search agent dynamically
+    const { handleLiveQuery, checkOllamaHealth } = await import('../services/searchAgent');
+
+    // Check if Ollama is available
+    const ollamaAvailable = await checkOllamaHealth();
+    if (!ollamaAvailable) {
+      return res.json({
+        success: true,
+        reply: "I'm having trouble connecting to the AI service. The web search feature requires Ollama to be running. Please try the regular chat or submit a support ticket.",
+        isOffline: true
+      });
+    }
+
+    // Call the live search agent
+    const response = await handleLiveQuery(message, context || `User ID: ${userId}`);
+
+    res.json({
+      success: true,
+      reply: response,
+      source: 'live_web_search'
+    });
+
+  } catch (error) {
+    console.error('Live Chat Error:', error);
+    res.json({
+      success: true,
+      reply: "I couldn't complete the web search. Please try the regular chat or submit a support ticket for assistance.",
+      isOffline: true
+    });
+  }
+});
+
 // ==================== FEEDBACK ROUTES ====================
 
 // Submit new feedback

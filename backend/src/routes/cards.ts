@@ -604,11 +604,14 @@ router.patch('/applications/:id/review', async (req: Request, res: Response) => 
       const pinHash = crypto.createHash('sha256').update(defaultPin).digest('hex');
 
       const cardLimit = daily_limit || application.requested_limit || 5000;
+      const cardType = application.card_type || 'CREDIT';
+      const creditLimit = cardType === 'CREDIT' ? cardLimit : 0;
+      const availableCredit = creditLimit;
 
       await query(
-        `INSERT INTO cards (account_id, card_number_masked, card_holder_name, expiry_date, pin_hash, daily_limit, is_international_enabled, is_online_enabled, status)
-         VALUES ($1, $2, $3, $4, $5, $6, true, true, 'ACTIVE')`,
-        [accountId, cardNumberMasked, application.full_name.toUpperCase(), expiryDate, pinHash, cardLimit]
+        `INSERT INTO cards (account_id, card_number_masked, card_holder_name, expiry_date, pin_hash, daily_limit, is_international_enabled, is_online_enabled, status, card_type, credit_limit, available_credit)
+         VALUES ($1, $2, $3, $4, $5, $6, true, true, 'ACTIVE', $7, $8, $9)`,
+        [accountId, cardNumberMasked, application.full_name.toUpperCase(), expiryDate, pinHash, cardLimit, cardType, creditLimit, availableCredit]
       );
     }
 

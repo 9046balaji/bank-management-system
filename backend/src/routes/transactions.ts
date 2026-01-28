@@ -240,6 +240,7 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
 
 // ==========================================
 // TRANSFER BETWEEN ACCOUNTS (with idempotency support)
+// Supports both internal (Aura Bank) and external (IMPS/NEFT) transfers
 // ==========================================
 router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Response) => {
   try {
@@ -250,6 +251,10 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
       description = 'Transfer',
       pin,
       idempotency_key,
+      // External bank fields
+      destination_bank,
+      ifsc_code,
+      transfer_type = 'INTERNAL', // INTERNAL, DOMESTIC (IMPS/NEFT), INTERNATIONAL
     } = req.body;
 
     // Validate required fields
@@ -352,16 +357,84 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
       });
     }
 
-    // Get recipient account
+    // Get recipient account (internal transfer)
     const recipientResult = await query(
       'SELECT * FROM accounts WHERE account_number = $1',
       [to_account_number]
     );
 
+    const isExternalTransfer = recipientResult.rowCount === 0 || transfer_type === 'DOMESTIC' || transfer_type === 'INTERNATIONAL';
+
+    // For external transfers, we simulate the process
+    if (isExternalTransfer && destination_bank) {
+      // External bank transfer - simulate processing
+      const client = await pool.connect();
+      
+      try {
+        await client.query('BEGIN');
+        
+        // Generate transfer reference
+        const externalRefId = `EXT-${Date.now().toString(36).toUpperCase()}`;
+        
+        // Debit sender's account
+        await client.query(
+          `UPDATE accounts SET balance = balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+          [amount, from_account_id]
+        );
+        
+        // Create ledger entry for debit
+        await client.query(
+          `INSERT INTO ledger_entries (account_id, entry_type, amount, balance_after, reference_id, description)
+           SELECT $1, 'DEBIT', $2, balance, $3, $4 FROM accounts WHERE id = $1`,
+          [from_account_id, amount, externalRefId, `External transfer to ${destination_bank}`]
+        );
+        
+        // Create transaction record
+        await client.query(
+          `INSERT INTO transactions (
+            account_id, type, amount, description, status, reference_id,
+            destination_bank, destination_account, ifsc_code, transfer_type
+          ) VALUES ($1, 'TRANSFER', $2, $3, 'COMPLETED', $4, $5, $6, $7, $8)`,
+          [
+            from_account_id, amount, description, externalRefId,
+            destination_bank, to_account_number, ifsc_code || null, transfer_type
+          ]
+        );
+        
+        await client.query('COMMIT');
+        
+        // Get updated balance
+        const updatedSender = await query(
+          'SELECT balance FROM accounts WHERE id = $1',
+          [from_account_id]
+        );
+        
+        res.json({
+          success: true,
+          message: `External transfer to ${destination_bank} initiated successfully`,
+          reference_id: externalRefId,
+          transfer_type: transfer_type,
+          amount: amount,
+          new_balance: updatedSender.rows[0].balance,
+          recipient_bank: destination_bank,
+          recipient_account: to_account_number,
+          estimated_completion: transfer_type === 'DOMESTIC' ? 'Within 2 hours' : 'Within 24-48 hours',
+        });
+        
+        return;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    // Internal Aura Bank transfer
     if (recipientResult.rowCount === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Recipient account not found',
+        error: 'Recipient account not found in Aura Bank. For external bank transfers, please provide the destination bank name.',
       });
     }
 
