@@ -584,11 +584,38 @@ function isFeedbackRelated(message: string): boolean {
     'happy', 'resolved', 'unresolved', 'pending', 'new feedback', 'recent',
     'top issues', 'common problems', 'user complaints', 'customer feedback',
     'what are', 'how many', 'show me', 'list', 'get', 'retrieve', 'find',
-    'status', 'category', 'type', 'insight', 'action item'
+    'status', 'category', 'type', 'insight', 'action item',
+    'user', 'about', 'tell me', 'from'
   ];
   
   const lowerMessage = message.toLowerCase();
   return feedbackKeywords.some(keyword => lowerMessage.includes(keyword));
+}
+
+// Helper function to extract user name from a query
+function extractUserNameFromQuery(message: string): string | null {
+  const lowerMessage = message.toLowerCase();
+  
+  // Patterns to detect user-specific queries
+  const patterns = [
+    /(?:tell me about|about|feedback from|from user|user)\s+(\w+)/i,
+    /(?:what did|what has|show me)\s+(\w+)\s+(?:say|said|submit|feedback)/i,
+    /(\w+)(?:'s| 's|s)\s+feedback/i,
+    /feedback\s+(?:from|by|of)\s+(\w+)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match && match[1]) {
+      // Exclude common words that aren't user names
+      const excludeWords = ['the', 'all', 'new', 'recent', 'latest', 'resolved', 'pending', 'this', 'that', 'user', 'users'];
+      if (!excludeWords.includes(match[1].toLowerCase())) {
+        return match[1];
+      }
+    }
+  }
+  
+  return null;
 }
 
 // ==========================================
@@ -612,10 +639,15 @@ router.post('/chat', async (req: Request, res: Response) => {
                           lowerMessage.includes('list') ||
                           lowerMessage.includes('get feedback') ||
                           lowerMessage.includes('find feedback') ||
-                          lowerMessage.includes('fetch');
+                          lowerMessage.includes('fetch') ||
+                          lowerMessage.includes('tell me about') ||
+                          lowerMessage.includes('about user');
 
     let feedbackContext = context || '';
     let retrievedFeedback: any[] = [];
+
+    // Check if asking about a specific user
+    const userName = extractUserNameFromQuery(message);
 
     // If user asks to retrieve feedback, fetch from database
     if (wantsRetrieval || isFeedbackRelated(message)) {
@@ -634,27 +666,43 @@ router.post('/chat', async (req: Request, res: Response) => {
         else if (lowerMessage.includes('feature')) typeFilter = 'FEATURE';
         else if (lowerMessage.includes('praise')) typeFilter = 'PRAISE';
 
-        if (lowerMessage.includes('all')) limit = 50;
-        else if (lowerMessage.includes('recent') || lowerMessage.includes('latest')) limit = 5;
+        // If asking about a specific user, get ALL their feedback
+        if (userName) {
+          limit = 100; // Get all feedback from this user
+        } else if (lowerMessage.includes('all')) {
+          limit = 50;
+        } else if (lowerMessage.includes('recent') || lowerMessage.includes('latest')) {
+          limit = 5;
+        }
 
-        // Build query
-        let queryStr = `SELECT id, subject, description, type, category, rating, status, created_at 
-                        FROM feedback WHERE 1=1`;
+        // Build query - include user information
+        let queryStr = `SELECT f.id, f.subject, f.description, f.type, f.category, f.rating, f.status, f.created_at,
+                        u.full_name as user_name, u.email as user_email
+                        FROM feedback f
+                        LEFT JOIN users u ON f.user_id = u.id
+                        WHERE 1=1`;
         const params: any[] = [];
         let paramIndex = 1;
 
+        // If asking about a specific user, filter by user name
+        if (userName) {
+          queryStr += ` AND LOWER(u.full_name) LIKE LOWER($${paramIndex})`;
+          params.push(`%${userName}%`);
+          paramIndex++;
+        }
+
         if (statusFilter) {
-          queryStr += ` AND status = $${paramIndex}`;
+          queryStr += ` AND f.status = $${paramIndex}`;
           params.push(statusFilter);
           paramIndex++;
         }
         if (typeFilter) {
-          queryStr += ` AND type = $${paramIndex}`;
+          queryStr += ` AND f.type = $${paramIndex}`;
           params.push(typeFilter);
           paramIndex++;
         }
 
-        queryStr += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
+        queryStr += ` ORDER BY f.created_at DESC LIMIT $${paramIndex}`;
         params.push(limit);
 
         const feedbackResult = await query(queryStr, params);
@@ -662,14 +710,21 @@ router.post('/chat', async (req: Request, res: Response) => {
 
         // Add retrieved feedback to context
         if (retrievedFeedback.length > 0) {
-          feedbackContext += `\n\n=== RETRIEVED FEEDBACK (${retrievedFeedback.length} items) ===\n`;
+          if (userName) {
+            feedbackContext += `\n\n=== ALL FEEDBACK FROM USER "${userName.toUpperCase()}" (${retrievedFeedback.length} items) ===\n`;
+          } else {
+            feedbackContext += `\n\n=== RETRIEVED FEEDBACK (${retrievedFeedback.length} items) ===\n`;
+          }
           retrievedFeedback.forEach((f: any, idx: number) => {
             feedbackContext += `\n[${idx + 1}] Subject: ${f.subject}
+   User: ${f.user_name || 'Anonymous'} (${f.user_email || 'No email'})
    Type: ${f.type} | Status: ${f.status} | Rating: ${f.rating || 'N/A'}/5
    Category: ${f.category || 'N/A'}
-   Description: ${f.description?.substring(0, 200)}${f.description?.length > 200 ? '...' : ''}
+   Description: ${f.description?.substring(0, 300)}${f.description?.length > 300 ? '...' : ''}
    Date: ${new Date(f.created_at).toLocaleDateString()}\n`;
           });
+        } else if (userName) {
+          feedbackContext += `\n\nNo feedback found from user matching "${userName}". The user may not have submitted any feedback or the name may be spelled differently.`;
         }
       } catch (dbError) {
         console.error('Error fetching feedback for chat:', dbError);
@@ -677,7 +732,7 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Check if the question is feedback-related
-    if (!isFeedbackRelated(message) && !wantsRetrieval) {
+    if (!isFeedbackRelated(message) && !wantsRetrieval && !userName) {
       return res.json({
         success: true,
         data: {
@@ -686,6 +741,7 @@ router.post('/chat', async (req: Request, res: Response) => {
 • **Summarizing customer feedback** - "Summarize recent complaints"
 • **Analyzing feedback trends** - "What are the top issues?"
 • **Retrieving feedback** - "Show me resolved feedback" or "List new complaints"
+• **User-specific feedback** - "Tell me about user John" or "Show feedback from Balaji"
 • **Sentiment analysis** - "How is user satisfaction trending?"
 • **Identifying issues** - "What are common problems reported?"
 

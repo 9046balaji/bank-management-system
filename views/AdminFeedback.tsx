@@ -111,6 +111,27 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
     }
   };
 
+  const handleSummarizeAll = async () => {
+    if (feedback.length === 0) return;
+
+    setSummarizing(true);
+    try {
+      // Get all feedback IDs
+      const allFeedbackIds = feedback.map(f => f.id);
+      const data = await api.adminAi.summarize(allFeedbackIds, user.id);
+      if (data.success) {
+        setCurrentInsight(data.data.ai_response);
+        fetchInsights();
+        // Switch to insights tab to show the result
+        setActiveTab('insights');
+      }
+    } catch (error) {
+      console.error('Error summarizing all feedback:', error);
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
   const handleRespond = async (feedbackId: string) => {
     if (!responseText.trim()) return;
 
@@ -199,6 +220,15 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
           <p className="text-slate-500">View, analyze, and respond to user feedback with AI assistance</p>
         </div>
         <div className="flex gap-2">
+          {/* Summarize All Button - always visible */}
+          <button
+            onClick={handleSummarizeAll}
+            disabled={summarizing || feedback.length === 0}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+          >
+            <span className="material-symbols-outlined text-sm">summarize</span>
+            {summarizing ? 'Analyzing...' : `Summarize All (${feedback.length})`}
+          </button>
           {selectedIds.length > 0 && (
             <button
               onClick={handleSummarize}
@@ -595,39 +625,56 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
       )}
 
       {activeTab === 'chat' && (
-        <div className="bg-surface-light dark:bg-surface-dark rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="font-bold flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">smart_toy</span>
-              Feedback Analysis Assistant
-            </h3>
-            <p className="text-sm text-slate-500">Ask questions about feedback, get summaries, retrieve feedback data, or analyze trends</p>
-            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">info</span>
-              This assistant only handles feedback-related queries
-            </p>
+        <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-white/50 dark:border-slate-700/50 overflow-hidden">
+          {/* Chat Header */}
+          <div className="p-5 border-b border-slate-100 dark:border-slate-700/50 bg-gradient-to-r from-purple-500/5 via-indigo-500/5 to-blue-500/5">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="size-12 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30">
+                  <span className="material-symbols-outlined text-white text-xl">psychology</span>
+                </div>
+                <div className="absolute -bottom-1 -right-1 size-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-xs">check</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg flex items-center gap-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                  Feedback Analysis Assistant
+                </h3>
+                <p className="text-sm text-slate-500">Ask questions about feedback, get summaries, or analyze trends</p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl">
+                <span className="material-symbols-outlined text-amber-600 text-sm">info</span>
+                <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">Feedback queries only</span>
+              </div>
+            </div>
           </div>
 
-          <div className="h-[400px] overflow-y-auto p-4 space-y-4">
+          {/* Messages Area */}
+          <div className="h-[450px] overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-transparent to-slate-50/30 dark:to-slate-900/30">
             {chatMessages.length === 0 ? (
-              <div className="text-center text-slate-400 py-8">
-                <span className="material-symbols-outlined text-5xl mb-2">chat</span>
-                <p>Start a conversation about feedback</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <div className="text-center py-12">
+                <div className="size-20 bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  <span className="material-symbols-outlined text-4xl text-purple-600 dark:text-purple-400">forum</span>
+                </div>
+                <h4 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-2">Start a conversation</h4>
+                <p className="text-slate-500 mb-6">Ask about feedback patterns, summarize complaints, or analyze trends</p>
+                <div className="flex flex-wrap justify-center gap-2 max-w-xl mx-auto">
                   {[
-                    'Summarize recent complaints',
-                    'What are the top issues?',
-                    'Show me resolved feedback',
-                    'List new complaints',
-                    'How is user satisfaction?',
-                    'Retrieve all bug reports',
+                    { icon: 'summarize', text: 'Summarize recent complaints' },
+                    { icon: 'priority_high', text: 'What are the top issues?' },
+                    { icon: 'check_circle', text: 'Show me resolved feedback' },
+                    { icon: 'fiber_new', text: 'List new complaints' },
+                    { icon: 'sentiment_satisfied', text: 'How is user satisfaction?' },
+                    { icon: 'bug_report', text: 'Retrieve all bug reports' },
                   ].map(suggestion => (
                     <button
-                      key={suggestion}
-                      onClick={() => setChatInput(suggestion)}
-                      className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-sm hover:bg-slate-200 dark:hover:bg-slate-700"
+                      key={suggestion.text}
+                      onClick={() => setChatInput(suggestion.text)}
+                      className="px-4 py-2 bg-white dark:bg-slate-800 rounded-xl text-sm hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 dark:hover:from-purple-900/20 dark:hover:to-indigo-900/20 transition-all flex items-center gap-2 border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 shadow-sm"
                     >
-                      {suggestion}
+                      <span className="material-symbols-outlined text-sm text-purple-600">{suggestion.icon}</span>
+                      {suggestion.text}
                     </button>
                   ))}
                 </div>
@@ -638,42 +685,77 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
                   key={idx}
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div
-                    className={`max-w-[80%] p-3 rounded-2xl ${msg.role === 'user'
-                      ? 'bg-primary text-white rounded-br-sm'
-                      : 'bg-slate-100 dark:bg-slate-800 rounded-bl-sm'
-                      }`}
-                  >
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  <div className={`flex items-start gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    {/* Avatar */}
+                    {msg.role === 'user' ? (
+                      <div className="shrink-0 size-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <span className="material-symbols-outlined text-white text-lg">person</span>
+                      </div>
+                    ) : (
+                      <div className="shrink-0 size-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/30">
+                        <span className="material-symbols-outlined text-white text-lg">psychology</span>
+                      </div>
+                    )}
+                    
+                    {/* Message Bubble */}
+                    <div
+                      className={`relative p-4 ${msg.role === 'user'
+                        ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl rounded-tr-md shadow-lg shadow-blue-500/20'
+                        : 'bg-white dark:bg-slate-700 rounded-2xl rounded-tl-md shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 border border-slate-100 dark:border-slate-600'
+                        }`}
+                    >
+                      {msg.role !== 'user' && (
+                        <p className="text-xs font-bold uppercase mb-2 text-purple-600 dark:text-purple-400">
+                          AI Assistant
+                        </p>
+                      )}
+                      <p className={`text-sm whitespace-pre-wrap leading-relaxed ${
+                        msg.role === 'user' ? '' : 'text-slate-700 dark:text-slate-200'
+                      }`}>{msg.content}</p>
+                    </div>
                   </div>
                 </div>
               ))
             )}
             {chatLoading && (
               <div className="flex justify-start">
-                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl rounded-bl-sm">
-                  <span className="material-symbols-outlined animate-pulse">more_horiz</span>
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 size-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <span className="material-symbols-outlined text-white text-lg">psychology</span>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700 p-4 rounded-2xl rounded-tl-md shadow-lg">
+                    <div className="flex gap-1.5">
+                      <div className="size-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="size-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="size-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleChat()}
-                placeholder="Ask about feedback: summarize, retrieve, analyze trends..."
-                className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none"
-              />
+          {/* Input Area */}
+          <div className="p-4 border-t border-slate-100 dark:border-slate-700/50 bg-gradient-to-r from-slate-50/80 to-white/80 dark:from-slate-800/80 dark:to-slate-700/80 backdrop-blur-xl">
+            <div className="flex gap-3">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleChat()}
+                  placeholder="Ask about feedback: summarize, retrieve, analyze trends..."
+                  className="w-full px-5 py-4 bg-white dark:bg-slate-800 rounded-2xl border-2 border-slate-200 dark:border-slate-600 focus:outline-none focus:border-purple-400 dark:focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 transition-all placeholder:text-slate-400"
+                />
+              </div>
               <button
                 onClick={handleChat}
                 disabled={chatLoading || !chatInput.trim()}
-                className="px-6 py-3 bg-primary text-white rounded-xl font-bold disabled:opacity-50"
+                className="px-6 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-2xl font-bold disabled:opacity-50 hover:shadow-lg hover:shadow-purple-500/30 hover:scale-105 transition-all flex items-center gap-2 group"
               >
-                <span className="material-symbols-outlined">send</span>
+                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
+                  {chatLoading ? 'hourglass_empty' : 'send'}
+                </span>
               </button>
             </div>
           </div>

@@ -125,8 +125,11 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
 
   const fetchLoanPayments = async () => {
     try {
-      const response = await fetch('http://localhost:5000/admin/ai/loans/payments?limit=10', {
+      const response = await fetch('http://localhost:5000/api/admin/ai/loans/payments?limit=10', {
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('aura_session_token') || ''}`,
+        },
       });
       const data = await response.json();
       if (data.success) {

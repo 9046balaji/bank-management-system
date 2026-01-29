@@ -36,6 +36,7 @@ const AdminPaymentTracking = lazy(() => import('./views/AdminPaymentTracking'));
 // Session storage keys
 const SESSION_TOKEN_KEY = 'aura_session_token';
 const SESSION_USER_KEY = 'aura_user_data';
+const SESSION_VIEW_KEY = 'aura_current_view';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserState>(INITIAL_STATE);
@@ -126,23 +127,44 @@ const App: React.FC = () => {
           setAuthToken(storedToken);
           setIsAuthenticated(true);
           
-          // Navigate based on role and KYC status
-          if (loginData.user.role === 'ADMIN') {
+          // Try to restore the saved view first
+          const savedView = localStorage.getItem(SESSION_VIEW_KEY) as View | null;
+          const isAdmin = loginData.user.role === 'ADMIN';
+          const isKycVerified = loginData.user.kyc_status === 'VERIFIED';
+          
+          // Validate the saved view is appropriate for the user's role
+          const adminViews = [View.ADMIN_OVERVIEW, View.ADMIN_LOANS, View.ADMIN_CARDS, 
+                             View.ADMIN_CONFIG, View.ADMIN_FEEDBACK, View.ADMIN_CHAT, View.ADMIN_PAYMENTS];
+          const userViews = [View.DASHBOARD, View.TRANSFERS, View.MANAGE_FUNDS, View.MY_CARDS, 
+                            View.LOANS, View.ANALYTICS, View.SUPPORT, View.PROFILE];
+          
+          if (savedView && isAdmin && adminViews.includes(savedView)) {
+            // Restore admin's saved view
+            setCurrentView(savedView);
+          } else if (savedView && !isAdmin && isKycVerified && userViews.includes(savedView)) {
+            // Restore user's saved view (only if KYC is verified)
+            setCurrentView(savedView);
+          } else if (isAdmin) {
+            // Default for admin
             setCurrentView(View.ADMIN_OVERVIEW);
-          } else if (loginData.user.kyc_status !== 'VERIFIED') {
+          } else if (!isKycVerified) {
+            // KYC not verified
             setCurrentView(View.KYC);
           } else {
+            // Default for user
             setCurrentView(View.DASHBOARD);
           }
         } else {
           // Invalid session, clear storage
           localStorage.removeItem(SESSION_TOKEN_KEY);
           localStorage.removeItem(SESSION_USER_KEY);
+          localStorage.removeItem(SESSION_VIEW_KEY);
         }
       } catch (error) {
         console.error('Session restore failed:', error);
         localStorage.removeItem(SESSION_TOKEN_KEY);
         localStorage.removeItem(SESSION_USER_KEY);
+        localStorage.removeItem(SESSION_VIEW_KEY);
       } finally {
         setIsLoading(false);
       }
@@ -150,6 +172,14 @@ const App: React.FC = () => {
 
     restoreSession();
   }, [mapUserData]);
+
+  // Save current view to localStorage whenever it changes (for authenticated views only)
+  useEffect(() => {
+    if (isAuthenticated && currentView !== View.LANDING && currentView !== View.LOGIN && 
+        currentView !== View.REGISTER && currentView !== View.FORGOT_PASSWORD) {
+      localStorage.setItem(SESSION_VIEW_KEY, currentView);
+    }
+  }, [currentView, isAuthenticated]);
 
   // Apply dark mode to body
   useEffect(() => {
@@ -236,6 +266,7 @@ const App: React.FC = () => {
     // Clear session from localStorage
     localStorage.removeItem(SESSION_TOKEN_KEY);
     localStorage.removeItem(SESSION_USER_KEY);
+    localStorage.removeItem(SESSION_VIEW_KEY);
     
     setIsAuthenticated(false);
     setAuthToken(null);
