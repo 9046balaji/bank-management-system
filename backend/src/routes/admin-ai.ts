@@ -17,11 +17,14 @@ interface OllamaResponse {
 // System prompt for feedback analysis
 const FEEDBACK_ANALYSIS_PROMPT = `You are a Banking Product Manager analyzing customer feedback.
 Analyze the following customer feedback and provide insights.
+Pay attention to the 'Status' of each feedback item.
 Output ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
 {
   "summary": "2-3 sentence executive summary of the feedback",
   "sentiment": "POSITIVE" or "NEUTRAL" or "NEGATIVE",
-  "key_issues": ["issue 1", "issue 2", "issue 3"],
+  "solved_issues": ["issue 1 that is marked resolved", "issue 2 that is fixed"],
+  "unsolved_issues": ["issue 3 that is new or pending", "issue 4 that needs attention"],
+  "key_issues": ["issue 3", "issue 4"],
   "action_items": ["action 1", "action 2", "action 3"],
   "priority": "HIGH" or "MEDIUM" or "LOW"
 }`;
@@ -94,6 +97,50 @@ router.get('/feedback', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to fetch feedback',
+    });
+  }
+});
+
+// ==========================================
+// CREATE FEEDBACK (Admin/Seed)
+// ==========================================
+router.post('/feedback', async (req: Request, res: Response) => {
+  try {
+    const { user_id, type, category, subject, description, rating, status, is_public } = req.body;
+
+    if (!subject || !description) {
+      return res.status(400).json({
+        success: false,
+        error: 'subject and description are required',
+      });
+    }
+
+    const result = await query(
+      `INSERT INTO feedback (user_id, type, category, subject, description, rating, status, is_public, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       RETURNING *`,
+      [
+        user_id || null,
+        type || 'OTHER',
+        category || 'APP',
+        subject,
+        description,
+        rating || 3,
+        status || 'NEW',
+        is_public || false
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: result.rows[0],
+      message: 'Feedback created successfully',
+    });
+  } catch (error) {
+    console.error('Error creating feedback:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create feedback',
     });
   }
 });
@@ -239,7 +286,7 @@ router.post('/feedback/summarize', async (req: Request, res: Response) => {
 
     // 1. Fetch the feedback content from database
     const feedbackResult = await query(
-      `SELECT id, subject, description, type, category, rating 
+      `SELECT id, subject, description, type, category, rating, status
        FROM feedback 
        WHERE id = ANY($1::uuid[])`,
       [feedback_ids]
@@ -253,9 +300,10 @@ router.post('/feedback/summarize', async (req: Request, res: Response) => {
     }
 
     // 2. Combine feedback text for the LLM
-    const combinedText = feedbackResult.rows.map((f: any, idx: number) => 
+    const combinedText = feedbackResult.rows.map((f: any, idx: number) =>
       `[Feedback ${idx + 1}]
 Type: ${f.type || 'N/A'}
+Status: ${f.status || 'NEW'}
 Category: ${f.category || 'N/A'}
 Rating: ${f.rating ? `${f.rating}/5` : 'N/A'}
 Subject: ${f.subject}
@@ -281,7 +329,7 @@ Description: ${f.description}`
       }
 
       const data = await response.json() as OllamaResponse;
-      
+
       // Parse the AI response
       try {
         aiInsight = JSON.parse(data.response);
@@ -296,11 +344,13 @@ Description: ${f.description}`
       }
     } catch (ollamaError) {
       console.error('Ollama API error:', ollamaError);
-      
+
       // Fallback: Generate a basic summary without AI
       aiInsight = {
         summary: `Analysis of ${feedback_ids.length} feedback items. Types: ${[...new Set(feedbackResult.rows.map((f: any) => f.type))].join(', ')}. Average rating: ${(feedbackResult.rows.reduce((acc: number, f: any) => acc + (f.rating || 0), 0) / feedbackResult.rows.filter((f: any) => f.rating).length || 0).toFixed(1)}/5`,
         sentiment: 'NEUTRAL',
+        solved_issues: [],
+        unsolved_issues: feedbackResult.rows.map((f: any) => f.subject),
         key_issues: feedbackResult.rows.slice(0, 3).map((f: any) => f.subject),
         action_items: ['Review individual feedback items', 'Respond to users', 'Track resolution'],
         priority: 'MEDIUM',
@@ -311,8 +361,8 @@ Description: ${f.description}`
     // 4. Save the insight to database
     const insertResult = await query(
       `INSERT INTO feedback_insights 
-       (admin_id, source_feedback_ids, summary_text, sentiment, key_issues, action_items, model_used)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (admin_id, source_feedback_ids, summary_text, sentiment, key_issues, solved_issues, unsolved_issues, action_items, model_used)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         admin_id || null,
@@ -320,6 +370,8 @@ Description: ${f.description}`
         aiInsight.summary,
         aiInsight.sentiment,
         aiInsight.key_issues || [],
+        aiInsight.solved_issues || [],
+        aiInsight.unsolved_issues || [],
         aiInsight.action_items || [],
         aiInsight.ai_available === false ? 'fallback' : OLLAMA_MODEL,
       ]
@@ -498,7 +550,49 @@ router.get('/loans/analytics', async (req: Request, res: Response) => {
 });
 
 // ==========================================
-// CHAT WITH AI (General Admin Assistant)
+// FEEDBACK-ONLY CHAT SYSTEM PROMPT
+// ==========================================
+const FEEDBACK_CHAT_PROMPT = `You are a Feedback Analysis Assistant for Aura Bank administrators.
+
+IMPORTANT RESTRICTIONS:
+- You ONLY answer questions related to customer feedback, feedback analysis, and feedback summaries
+- You can help summarize feedback, analyze sentiment, identify trends, and retrieve feedback information
+- If asked about ANYTHING not related to feedback (banking operations, loans, transfers, accounts, etc.), politely decline and explain you only handle feedback-related queries
+
+Your capabilities:
+1. Summarize feedback data provided in context
+2. Analyze sentiment and trends in feedback
+3. Identify common issues and complaints
+4. Suggest action items based on feedback
+5. Answer questions about feedback categories, ratings, and status
+6. Help retrieve and filter feedback by various criteria
+
+When declining non-feedback questions, say:
+"I'm specialized in feedback analysis only. I can help you with:
+- Summarizing customer feedback
+- Analyzing feedback trends and sentiment  
+- Identifying common issues from feedback
+- Retrieving feedback by status, category, or rating
+Please ask a feedback-related question, or use other tools for banking operations."`;
+
+// Helper function to check if a query is feedback-related
+function isFeedbackRelated(message: string): boolean {
+  const feedbackKeywords = [
+    'feedback', 'complaint', 'review', 'rating', 'comment', 'suggestion',
+    'issue', 'problem', 'bug', 'feature request', 'praise', 'sentiment',
+    'summarize', 'summary', 'analyze', 'trend', 'satisfaction', 'unhappy',
+    'happy', 'resolved', 'unresolved', 'pending', 'new feedback', 'recent',
+    'top issues', 'common problems', 'user complaints', 'customer feedback',
+    'what are', 'how many', 'show me', 'list', 'get', 'retrieve', 'find',
+    'status', 'category', 'type', 'insight', 'action item'
+  ];
+  
+  const lowerMessage = message.toLowerCase();
+  return feedbackKeywords.some(keyword => lowerMessage.includes(keyword));
+}
+
+// ==========================================
+// CHAT WITH AI (Feedback-Only Assistant)
 // ==========================================
 router.post('/chat', async (req: Request, res: Response) => {
   try {
@@ -511,10 +605,96 @@ router.post('/chat', async (req: Request, res: Response) => {
       });
     }
 
-    const systemPrompt = `You are an AI assistant for Aura Bank administrators. 
-You help analyze banking data, customer feedback, and provide insights.
-Be concise and professional. Format responses clearly.
-${context ? `Context: ${context}` : ''}`;
+    // Check if user wants to retrieve feedback from database
+    const lowerMessage = message.toLowerCase();
+    const wantsRetrieval = lowerMessage.includes('retrieve') || 
+                          lowerMessage.includes('show me') || 
+                          lowerMessage.includes('list') ||
+                          lowerMessage.includes('get feedback') ||
+                          lowerMessage.includes('find feedback') ||
+                          lowerMessage.includes('fetch');
+
+    let feedbackContext = context || '';
+    let retrievedFeedback: any[] = [];
+
+    // If user asks to retrieve feedback, fetch from database
+    if (wantsRetrieval || isFeedbackRelated(message)) {
+      try {
+        // Determine filters based on message
+        let statusFilter = null;
+        let typeFilter = null;
+        let limit = 10;
+
+        if (lowerMessage.includes('resolved')) statusFilter = 'RESOLVED';
+        else if (lowerMessage.includes('new') || lowerMessage.includes('pending')) statusFilter = 'NEW';
+        else if (lowerMessage.includes('in progress')) statusFilter = 'IN_PROGRESS';
+        
+        if (lowerMessage.includes('complaint')) typeFilter = 'COMPLAINT';
+        else if (lowerMessage.includes('bug')) typeFilter = 'BUG';
+        else if (lowerMessage.includes('feature')) typeFilter = 'FEATURE';
+        else if (lowerMessage.includes('praise')) typeFilter = 'PRAISE';
+
+        if (lowerMessage.includes('all')) limit = 50;
+        else if (lowerMessage.includes('recent') || lowerMessage.includes('latest')) limit = 5;
+
+        // Build query
+        let queryStr = `SELECT id, subject, description, type, category, rating, status, created_at 
+                        FROM feedback WHERE 1=1`;
+        const params: any[] = [];
+        let paramIndex = 1;
+
+        if (statusFilter) {
+          queryStr += ` AND status = $${paramIndex}`;
+          params.push(statusFilter);
+          paramIndex++;
+        }
+        if (typeFilter) {
+          queryStr += ` AND type = $${paramIndex}`;
+          params.push(typeFilter);
+          paramIndex++;
+        }
+
+        queryStr += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
+        params.push(limit);
+
+        const feedbackResult = await query(queryStr, params);
+        retrievedFeedback = feedbackResult.rows;
+
+        // Add retrieved feedback to context
+        if (retrievedFeedback.length > 0) {
+          feedbackContext += `\n\n=== RETRIEVED FEEDBACK (${retrievedFeedback.length} items) ===\n`;
+          retrievedFeedback.forEach((f: any, idx: number) => {
+            feedbackContext += `\n[${idx + 1}] Subject: ${f.subject}
+   Type: ${f.type} | Status: ${f.status} | Rating: ${f.rating || 'N/A'}/5
+   Category: ${f.category || 'N/A'}
+   Description: ${f.description?.substring(0, 200)}${f.description?.length > 200 ? '...' : ''}
+   Date: ${new Date(f.created_at).toLocaleDateString()}\n`;
+          });
+        }
+      } catch (dbError) {
+        console.error('Error fetching feedback for chat:', dbError);
+      }
+    }
+
+    // Check if the question is feedback-related
+    if (!isFeedbackRelated(message) && !wantsRetrieval) {
+      return res.json({
+        success: true,
+        data: {
+          response: `I'm specialized in feedback analysis only. I can help you with:
+
+• **Summarizing customer feedback** - "Summarize recent complaints"
+• **Analyzing feedback trends** - "What are the top issues?"
+• **Retrieving feedback** - "Show me resolved feedback" or "List new complaints"
+• **Sentiment analysis** - "How is user satisfaction trending?"
+• **Identifying issues** - "What are common problems reported?"
+
+Please ask a feedback-related question. For banking operations, loans, or account management, please use the appropriate sections of the admin panel.`,
+          model: 'feedback-guard',
+          feedback_only: true,
+        },
+      });
+    }
 
     try {
       const response = await fetch(`${OLLAMA_URL}/api/generate`, {
@@ -522,7 +702,7 @@ ${context ? `Context: ${context}` : ''}`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: OLLAMA_MODEL,
-          prompt: `${systemPrompt}\n\nAdmin Query: ${message}`,
+          prompt: `${FEEDBACK_CHAT_PROMPT}\n\n${feedbackContext ? `Context:\n${feedbackContext}\n\n` : ''}User Query: ${message}`,
           stream: false,
         }),
       });
@@ -538,16 +718,32 @@ ${context ? `Context: ${context}` : ''}`;
         data: {
           response: data.response,
           model: OLLAMA_MODEL,
+          retrieved_count: retrievedFeedback.length,
         },
       });
     } catch (ollamaError) {
       // Fallback response if Ollama is not available
+      let fallbackResponse = "I apologize, but the AI service is currently unavailable. Please check that Ollama is running locally.";
+      
+      // If we have retrieved feedback, still provide useful info
+      if (retrievedFeedback.length > 0) {
+        fallbackResponse = `AI service is offline, but here's what I found in the database:\n\n`;
+        fallbackResponse += `📊 **Retrieved ${retrievedFeedback.length} feedback items:**\n\n`;
+        retrievedFeedback.slice(0, 5).forEach((f: any, idx: number) => {
+          fallbackResponse += `${idx + 1}. **${f.subject}** (${f.status})\n   Type: ${f.type} | Rating: ${f.rating || 'N/A'}/5\n\n`;
+        });
+        if (retrievedFeedback.length > 5) {
+          fallbackResponse += `...and ${retrievedFeedback.length - 5} more items.`;
+        }
+      }
+
       res.json({
         success: true,
         data: {
-          response: "I apologize, but the AI service is currently unavailable. Please check that Ollama is running locally with the gemma3 model. You can start it with: `ollama run gemma3`",
+          response: fallbackResponse,
           model: 'fallback',
           ai_available: false,
+          retrieved_count: retrievedFeedback.length,
         },
       });
     }

@@ -207,10 +207,91 @@ export const resourceOwnerMiddleware = (
   };
 };
 
+/**
+ * Resource ownership verification by resource type
+ * Checks if user owns the resource (account, card, loan, etc.)
+ */
+import { query } from '../db/connection';
+
+type ResourceType = 'account' | 'card' | 'loan' | 'transaction' | 'ticket';
+
+const resourceQueries: Record<ResourceType, string> = {
+  account: 'SELECT user_id FROM accounts WHERE id = $1',
+  card: 'SELECT a.user_id FROM cards c JOIN accounts a ON c.account_id = a.id WHERE c.id = $1',
+  loan: 'SELECT user_id FROM loans WHERE id = $1',
+  transaction: 'SELECT a.user_id FROM transactions t JOIN accounts a ON t.account_id = a.id WHERE t.id = $1',
+  ticket: 'SELECT user_id FROM support_tickets WHERE id = $1',
+};
+
+export const ownershipMiddleware = (resourceType: ResourceType, paramName: string = 'id') => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          code: 'NO_AUTH',
+        });
+        return;
+      }
+
+      // Admins can access any resource
+      if (req.user.role === 'ADMIN') {
+        next();
+        return;
+      }
+
+      const resourceId = req.params[paramName];
+      if (!resourceId) {
+        next();
+        return;
+      }
+
+      const sql = resourceQueries[resourceType];
+      if (!sql) {
+        console.error(`Unknown resource type: ${resourceType}`);
+        next();
+        return;
+      }
+
+      const result = await query(sql, [resourceId]);
+
+      if (result.rows.length === 0) {
+        res.status(404).json({
+          success: false,
+          error: 'Resource not found',
+          code: 'NOT_FOUND',
+        });
+        return;
+      }
+
+      const ownerId = result.rows[0].user_id;
+      if (ownerId !== req.user.userId) {
+        res.status(403).json({
+          success: false,
+          error: 'Access denied - you do not own this resource',
+          code: 'FORBIDDEN',
+        });
+        return;
+      }
+
+      next();
+    } catch (error) {
+      console.error('Ownership check error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to verify resource ownership',
+        code: 'OWNERSHIP_CHECK_ERROR',
+      });
+    }
+  };
+};
+
 export default {
   authMiddleware,
   adminMiddleware,
   optionalAuthMiddleware,
   rateLimitMiddleware,
   resourceOwnerMiddleware,
+  ownershipMiddleware,
 };

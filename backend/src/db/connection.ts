@@ -5,6 +5,10 @@ dotenv.config({ path: '.env.local' });
 
 const { Pool } = pkg;
 
+// Query logging configuration
+const SLOW_QUERY_THRESHOLD_MS = 1000; // Log queries slower than 1 second
+const LOG_ALL_QUERIES = process.env.DB_LOG_ALL_QUERIES === 'true';
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
@@ -14,23 +18,114 @@ const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
+  statement_timeout: 30000, // 30 second query timeout
+  application_name: 'aura-bank-api',
 });
 
 pool.on('error', (err: Error) => {
   console.error('Unexpected error on idle client', err);
 });
 
+pool.on('connect', () => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('New database connection established');
+  }
+});
+
+/**
+ * Database health check with detailed statistics
+ */
+export interface DatabaseHealthStatus {
+  status: 'healthy' | 'unhealthy' | 'degraded';
+  connected: boolean;
+  timestamp: string;
+  poolStats: {
+    totalCount: number;
+    idleCount: number;
+    waitingCount: number;
+  };
+  responseTimeMs?: number;
+  error?: string;
+}
+
+export const checkDatabaseHealth = async (): Promise<DatabaseHealthStatus> => {
+  const start = Date.now();
+
+  try {
+    const result = await pool.query('SELECT NOW() as time, pg_database_size(current_database()) as db_size');
+    const responseTimeMs = Date.now() - start;
+
+    return {
+      status: responseTimeMs > 5000 ? 'degraded' : 'healthy',
+      connected: true,
+      timestamp: result.rows[0].time,
+      poolStats: {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount,
+      },
+      responseTimeMs,
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      connected: false,
+      timestamp: new Date().toISOString(),
+      poolStats: {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount,
+      },
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Sanitize query for logging (remove sensitive data)
+ */
+function sanitizeQueryForLog(text: string): string {
+  // Truncate very long queries
+  if (text.length > 500) {
+    return text.substring(0, 500) + '... (truncated)';
+  }
+  return text;
+}
+
+/**
+ * Execute a database query with timing and logging
+ */
 export const query = async (text: string, params?: any[]) => {
   const start = Date.now();
+  const queryId = Math.random().toString(36).substring(7);
+
   try {
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
-    if (duration > 1000) {
-      console.log('Query executed', { text, duration, rows: res.rowCount });
+
+    // Log slow queries
+    if (duration > SLOW_QUERY_THRESHOLD_MS) {
+      console.warn(`[DB] Slow query [${queryId}]`, {
+        query: sanitizeQueryForLog(text),
+        duration: `${duration}ms`,
+        rows: res.rowCount,
+      });
+    } else if (LOG_ALL_QUERIES) {
+      console.log(`[DB] Query [${queryId}]`, {
+        query: sanitizeQueryForLog(text),
+        duration: `${duration}ms`,
+        rows: res.rowCount,
+      });
     }
+
     return res;
   } catch (error) {
-    console.error('Database query error:', error);
+    const duration = Date.now() - start;
+    console.error(`[DB] Query failed [${queryId}]`, {
+      query: sanitizeQueryForLog(text),
+      duration: `${duration}ms`,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     throw error;
   }
 };
@@ -45,14 +140,14 @@ export const runMigrations = async () => {
       SELECT enumlabel FROM pg_enum 
       WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'loan_status_enum')
     `);
-    
+
     const existingValues = checkEnum.rows.map((r: any) => r.enumlabel);
-    
+
     if (!existingValues.includes('APPROVED')) {
       await pool.query(`ALTER TYPE loan_status_enum ADD VALUE 'APPROVED'`);
       console.log('Added APPROVED to loan_status_enum');
     }
-    
+
     if (!existingValues.includes('REJECTED')) {
       await pool.query(`ALTER TYPE loan_status_enum ADD VALUE 'REJECTED'`);
       console.log('Added REJECTED to loan_status_enum');
@@ -63,7 +158,7 @@ export const runMigrations = async () => {
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = 'loan_applications' AND column_name = 'reviewed_at'
     `);
-    
+
     if (checkReviewedAt.rowCount === 0) {
       await pool.query(`ALTER TABLE loan_applications ADD COLUMN reviewed_at TIMESTAMP WITH TIME ZONE`);
       console.log('Added reviewed_at column to loan_applications');
@@ -74,7 +169,7 @@ export const runMigrations = async () => {
       SELECT column_name FROM information_schema.columns 
       WHERE table_name = 'accounts' AND column_name = 'updated_at'
     `);
-    
+
     if (checkAccountsUpdatedAt.rowCount === 0) {
       await pool.query(`ALTER TABLE accounts ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP`);
       console.log('Added updated_at column to accounts');
@@ -303,6 +398,8 @@ export const runMigrations = async () => {
         source_feedback_ids UUID[],
         summary_text TEXT NOT NULL,
         sentiment VARCHAR(20),
+        solved_issues TEXT[],
+        unsolved_issues TEXT[],
         key_issues TEXT[],
         action_items TEXT[],
         model_used VARCHAR(100) DEFAULT 'gemma3',

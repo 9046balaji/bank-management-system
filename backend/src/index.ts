@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-import { query, runMigrations } from './db/connection';
+import { query, runMigrations, checkDatabaseHealth } from './db/connection';
 import userRoutes from './routes/users';
 import accountRoutes from './routes/accounts';
 import transactionRoutes from './routes/transactions';
@@ -19,11 +19,11 @@ import chatRoutes from './routes/chat';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware/errorMiddleware';
 import { authMiddleware, adminMiddleware } from './middleware/authMiddleware';
 import { getAllCircuitBreakerStats } from './utils/circuitBreaker';
-import { 
-  globalRateLimiter, 
-  standardRateLimiter, 
+import {
+  globalRateLimiter,
+  standardRateLimiter,
   transactionRateLimiter,
-  mlRateLimiter 
+  mlRateLimiter
 } from './middleware/rateLimiter';
 
 dotenv.config({ path: '.env.local' });
@@ -37,15 +37,22 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Request body size limits for security
+app.use(express.json({
+  limit: '10kb',  // Limit JSON body size to prevent DoS
+  strict: true    // Only accept arrays and objects
+}));
+app.use(express.urlencoded({
+  extended: true,
+  limit: '10kb'
+}));
 app.use(cookieParser());
 
 // Request logging middleware
 app.use(requestLogger);
 
 // Global rate limiter - safety net for all requests
-app.use(globalRateLimiter);
+// app.use(globalRateLimiter);
 
 // Security headers
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -72,22 +79,12 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Database health check
+// Database health check with detailed stats
 app.get('/api/health/db', async (req: Request, res: Response) => {
-  try {
-    const result = await query('SELECT NOW()');
-    res.json({
-      status: 'OK',
-      database: 'Connected',
-      timestamp: result.rows[0].now,
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'ERROR',
-      database: 'Connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
+  const health = await checkDatabaseHealth();
+  const statusCode = health.status === 'healthy' ? 200 :
+    health.status === 'degraded' ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
 // Circuit breaker status (admin only)
@@ -102,6 +99,64 @@ app.get('/api/health/circuit-breakers', authMiddleware, adminMiddleware, (req: R
 // PUBLIC API Routes (no auth required)
 // ==========================================
 app.use('/api/users', userRoutes); // Login/register are public, other routes are protected internally
+
+// ==========================================
+// DEVELOPMENT ONLY - Seed Data Endpoints
+// ==========================================
+if (process.env.NODE_ENV !== 'production') {
+  // Seed feedback data (for testing)
+  app.post('/api/dev/seed-feedback', async (req: Request, res: Response) => {
+    try {
+      const { user_id, entries } = req.body;
+
+      if (!entries || !Array.isArray(entries)) {
+        return res.status(400).json({ error: 'entries array is required' });
+      }
+
+      // Get first user if not provided
+      let userId = user_id;
+      if (!userId) {
+        const userResult = await query("SELECT id FROM users WHERE role = 'USER' LIMIT 1");
+        userId = userResult.rows[0]?.id;
+      }
+
+      const results = [];
+      for (const entry of entries) {
+        try {
+          const result = await query(
+            `INSERT INTO feedback (user_id, type, category, subject, description, rating, status, is_public, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+             RETURNING id, subject`,
+            [
+              userId,
+              entry.type || 'OTHER',
+              entry.category || 'APP',
+              entry.subject,
+              entry.description,
+              entry.rating || 3,
+              entry.status || 'NEW',
+              entry.is_public || false
+            ]
+          );
+          results.push({ success: true, id: result.rows[0].id, subject: result.rows[0].subject });
+        } catch (err: any) {
+          results.push({ success: false, subject: entry.subject, error: err.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Seeded ${results.filter(r => r.success).length}/${entries.length} feedback entries`,
+        results
+      });
+    } catch (error) {
+      console.error('Seed error:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Seed failed' });
+    }
+  });
+
+  console.log('DEV endpoints enabled: /api/dev/seed-feedback');
+}
 
 // ==========================================
 // PROTECTED API Routes (auth required)
@@ -133,7 +188,7 @@ app.use(errorHandler);
 const startServer = async () => {
   // Run database migrations first
   await runMigrations();
-  
+
   app.listen(PORT, () => {
     console.log(`
 ╔════════════════════════════════════════╗

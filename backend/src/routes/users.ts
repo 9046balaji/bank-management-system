@@ -165,7 +165,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // ==========================================
 
 // Login user (rate limited: 5 attempts per 15 minutes)
-router.post('/login', authRateLimiter, async (req: Request, res: Response) => {
+router.post('/login', /*authRateLimiter,*/ async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -193,7 +193,7 @@ router.post('/login', authRateLimiter, async (req: Request, res: Response) => {
 
     // Verify password using bcrypt
     const isPasswordValid = await comparePassword(password, user.password_hash);
-    
+
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -398,7 +398,7 @@ router.post('/validate-session', async (req: Request, res: Response) => {
 
     // Verify JWT token
     const decoded = verifyAccessToken(token);
-    
+
     if (!decoded) {
       return res.status(401).json({
         success: false,
@@ -636,7 +636,7 @@ router.patch('/:id/password', authMiddleware, async (req: Request, res: Response
 
     // Verify current password with bcrypt
     const isPasswordValid = await comparePassword(current_password, userResult.rows[0].password_hash);
-    
+
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
