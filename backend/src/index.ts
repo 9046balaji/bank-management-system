@@ -31,11 +31,38 @@ dotenv.config({ path: '.env.local' });
 const app: Express = express();
 const PORT = process.env.SERVER_PORT || 5000;
 
+// Allowed origins for CORS (localhost + dev tunnels)
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+  // Dev tunnels pattern
+].filter(Boolean) as string[];
+
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Allow dev tunnels and localhost
+    if (allowedOrigins.includes(origin) || 
+        origin.includes('.devtunnels.ms') || 
+        origin.includes('.github.dev') ||
+        origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Idempotency-Key'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
 
 // Request body size limits for security
 app.use(express.json({

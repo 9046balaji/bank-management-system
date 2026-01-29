@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { UserState } from '../types';
 import { useSystemConfig } from '../src/contexts';
 
+// @ts-ignore - Vite provides import.meta.env
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:5000/api';
+
 interface PaymentRecord {
   id: string;
   user_id: string;
@@ -212,23 +215,60 @@ const DEMO_PAYMENT_RECORDS: PaymentRecord[] = [
 const AdminPaymentTracking: React.FC<AdminPaymentTrackingProps> = ({ user }) => {
   const { formatCurrency } = useSystemConfig();
   const [activeTab, setActiveTab] = useState<'users' | 'payments'>('users');
-  const [users, setUsers] = useState<UserPaymentSummary[]>(DEMO_USER_SUMMARIES);
-  const [payments, setPayments] = useState<PaymentRecord[]>(DEMO_PAYMENT_RECORDS);
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<UserPaymentSummary[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'overdue' | 'pending' | 'paid'>('all');
   const [selectedUser, setSelectedUser] = useState<UserPaymentSummary | null>(null);
+  const [stats, setStats] = useState<{ overdue_count: number; overdue_amount: number; pending_count: number; total_active_loans: number; total_outstanding: number } | null>(null);
 
-  // Fetch real data
+  // Helper function to get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem('aura_session_token');
+  };
+
+  // Fetch real data from API
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // In production, fetch from API
-        // const response = await fetch('/api/admin/payment-tracking');
-        // const data = await response.json();
-        // setUsers(data.users);
-        // setPayments(data.payments);
+        const token = getAuthToken();
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Fetch users, payments, and stats in parallel
+        const [usersRes, paymentsRes, statsRes] = await Promise.all([
+          fetch(`${API_BASE}/admin/ai/payment-tracking/users`, { headers }),
+          fetch(`${API_BASE}/admin/ai/payment-tracking/payments`, { headers }),
+          fetch(`${API_BASE}/admin/ai/payment-tracking/stats`, { headers }),
+        ]);
+
+        const usersData = await usersRes.json();
+        const paymentsData = await paymentsRes.json();
+        const statsData = await statsRes.json();
+
+        console.log('Payment Tracking API Response:', { usersData, paymentsData, statsData });
+
+        if (usersData.success) {
+          console.log('Setting users:', usersData.data?.length, 'users');
+          setUsers(usersData.data);
+        } else {
+          console.error('Failed to fetch users:', usersData);
+        }
+        if (paymentsData.success) {
+          console.log('Setting payments:', paymentsData.data?.length, 'payments');
+          setPayments(paymentsData.data);
+        } else {
+          console.error('Failed to fetch payments:', paymentsData);
+        }
+        if (statsData.success) {
+          setStats(statsData.data);
+        }
       } catch (error) {
         console.error('Error fetching payment data:', error);
       } finally {
@@ -276,9 +316,31 @@ const AdminPaymentTracking: React.FC<AdminPaymentTrackingProps> = ({ user }) => 
     return matchesSearch && matchesFilter;
   });
 
-  const overdueCount = payments.filter(p => p.status === 'OVERDUE').length;
-  const pendingCount = payments.filter(p => p.status === 'PENDING').length;
-  const totalOverdueAmount = payments.filter(p => p.status === 'OVERDUE').reduce((sum, p) => sum + p.amount, 0);
+  // Use API stats if available, otherwise calculate from local data
+  const overdueCount = stats?.overdue_count ?? payments.filter(p => p.status === 'OVERDUE').length;
+  const pendingCount = stats?.pending_count ?? payments.filter(p => p.status === 'PENDING').length;
+  const totalOverdueAmount = stats?.overdue_amount ?? payments.filter(p => p.status === 'OVERDUE').reduce((sum, p) => sum + p.amount, 0);
+  const totalOutstanding = stats?.total_outstanding ?? 0;
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight flex items-center gap-3">
+            <span className="material-symbols-outlined text-primary text-4xl">account_balance</span>
+            Payment Tracking
+          </h2>
+          <p className="text-slate-500">Monitor user loans, interest payments, and credit card bills</p>
+        </div>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-500">Loading payment data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -307,7 +369,7 @@ const AdminPaymentTracking: React.FC<AdminPaymentTrackingProps> = ({ user }) => 
             <span className="text-sm font-bold text-amber-600 uppercase">Pending</span>
           </div>
           <p className="text-3xl font-black text-amber-600">{pendingCount}</p>
-          <p className="text-sm text-amber-500 mt-1">Due this week</p>
+          <p className="text-sm text-amber-500 mt-1">Upcoming payments</p>
         </div>
         
         <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-2xl border border-green-200 dark:border-green-800">
@@ -321,11 +383,11 @@ const AdminPaymentTracking: React.FC<AdminPaymentTrackingProps> = ({ user }) => 
         
         <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-3 mb-2">
-            <span className="material-symbols-outlined text-blue-500">people</span>
-            <span className="text-sm font-bold text-blue-600 uppercase">Total Users</span>
+            <span className="material-symbols-outlined text-blue-500">account_balance_wallet</span>
+            <span className="text-sm font-bold text-blue-600 uppercase">Total Outstanding</span>
           </div>
-          <p className="text-3xl font-black text-blue-600">{users.length}</p>
-          <p className="text-sm text-blue-500 mt-1">With active obligations</p>
+          <p className="text-3xl font-black text-blue-600">{formatCurrency(totalOutstanding)}</p>
+          <p className="text-sm text-blue-500 mt-1">{users.length} users with loans</p>
         </div>
       </div>
 

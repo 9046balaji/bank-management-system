@@ -812,4 +812,234 @@ Please ask a feedback-related question. For banking operations, loans, or accoun
   }
 });
 
+// ==========================================
+// PAYMENT TRACKING - Get user payment summaries
+// ==========================================
+router.get('/payment-tracking/users', async (req: Request, res: Response) => {
+  try {
+    // Get all users with their loan and payment data
+    const usersResult = await query(`
+      SELECT 
+        u.id as user_id,
+        u.full_name as user_name,
+        u.email as user_email,
+        u.avatar_url,
+        
+        -- Loan stats
+        COUNT(DISTINCT l.id) as total_loans,
+        COUNT(DISTINCT CASE WHEN l.status = 'ACTIVE' THEN l.id END) as active_loans,
+        COALESCE(SUM(l.loan_amount), 0) as total_loan_amount,
+        COALESCE(SUM(l.outstanding_balance), 0) as total_outstanding,
+        
+        -- Card stats
+        COUNT(DISTINCT c.id) as credit_cards,
+        
+        -- Transaction stats for loan payments
+        COUNT(DISTINCT CASE WHEN t.type = 'LOAN_PAYMENT' AND t.status = 'COMPLETED' THEN t.id END) as loan_payments_made,
+        
+        -- Overdue calculation based on next_emi_date
+        COUNT(DISTINCT CASE WHEN l.status = 'ACTIVE' AND l.next_emi_date < CURRENT_DATE THEN l.id END) as loan_payments_overdue
+        
+      FROM users u
+      LEFT JOIN loans l ON l.user_id = u.id
+      LEFT JOIN accounts a ON a.user_id = u.id
+      LEFT JOIN cards c ON c.account_id = a.id
+      LEFT JOIN transactions t ON t.account_id = a.id
+      WHERE u.role = 'USER'
+      GROUP BY u.id, u.full_name, u.email, u.avatar_url
+      ORDER BY loan_payments_overdue DESC, total_outstanding DESC
+    `);
+
+    // Calculate payment health score for each user
+    const users = usersResult.rows.map((user: any) => {
+      const totalPayments = parseInt(user.loan_payments_made) + parseInt(user.active_loans);
+      const overduePayments = parseInt(user.loan_payments_overdue);
+      
+      // Health score: 100 - (overdue percentage * 100)
+      let healthScore = 100;
+      if (totalPayments > 0) {
+        healthScore = Math.max(0, Math.round(100 - (overduePayments / Math.max(1, parseInt(user.active_loans))) * 100));
+      }
+      
+      return {
+        user_id: user.user_id,
+        user_name: user.user_name,
+        user_email: user.user_email,
+        avatar: user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_name)}&background=135bec&color=fff`,
+        total_loans: parseInt(user.total_loans) || 0,
+        active_loans: parseInt(user.active_loans) || 0,
+        total_loan_amount: parseFloat(user.total_loan_amount) || 0,
+        total_outstanding: parseFloat(user.total_outstanding) || 0,
+        loan_payments_made: parseInt(user.loan_payments_made) || 0,
+        loan_payments_pending: parseInt(user.active_loans) || 0, // Each active loan has pending payments
+        loan_payments_overdue: parseInt(user.loan_payments_overdue) || 0,
+        credit_cards: parseInt(user.credit_cards) || 0,
+        credit_card_balance: 0, // Would need a credit_card_balance column
+        credit_card_payments_made: 0,
+        credit_card_payments_overdue: 0,
+        payment_health_score: healthScore,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: users,
+      count: users.length,
+    });
+  } catch (error) {
+    console.error('Error fetching payment tracking users:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch payment tracking data',
+    });
+  }
+});
+
+// ==========================================
+// PAYMENT TRACKING - Get payment records
+// ==========================================
+router.get('/payment-tracking/payments', async (req: Request, res: Response) => {
+  try {
+    const { status, user_id } = req.query;
+    
+    let whereConditions: string[] = [];
+    let params: any[] = [];
+    let paramIndex = 1;
+
+    if (user_id) {
+      whereConditions.push(`u.id = $${paramIndex}`);
+      params.push(user_id);
+      paramIndex++;
+    }
+
+    // Get loan payments (both made and pending/overdue)
+    const paymentsResult = await query(`
+      WITH loan_payments AS (
+        -- Completed loan payments from transactions
+        SELECT 
+          t.id,
+          u.id as user_id,
+          u.full_name as user_name,
+          u.email as user_email,
+          'LOAN_PAYMENT' as type,
+          t.amount,
+          t.transaction_date as due_date,
+          t.transaction_date as paid_date,
+          'PAID' as status,
+          l.id::text as reference_id,
+          l.type as reference_name
+        FROM transactions t
+        JOIN accounts a ON t.account_id = a.id
+        JOIN users u ON a.user_id = u.id
+        LEFT JOIN loans l ON l.user_id = u.id
+        WHERE t.type = 'LOAN_PAYMENT' AND t.status = 'COMPLETED'
+        ${whereConditions.length > 0 ? 'AND ' + whereConditions.join(' AND ') : ''}
+        
+        UNION ALL
+        
+        -- Pending/Overdue loan payments (from active loans with next_emi_date)
+        SELECT 
+          l.id,
+          u.id as user_id,
+          u.full_name as user_name,
+          u.email as user_email,
+          'LOAN_PAYMENT' as type,
+          l.emi_amount as amount,
+          l.next_emi_date as due_date,
+          NULL as paid_date,
+          CASE 
+            WHEN l.next_emi_date < CURRENT_DATE THEN 'OVERDUE'
+            ELSE 'PENDING'
+          END as status,
+          l.id::text as reference_id,
+          l.type as reference_name
+        FROM loans l
+        JOIN users u ON l.user_id = u.id
+        WHERE l.status = 'ACTIVE' AND l.next_emi_date IS NOT NULL
+        ${whereConditions.length > 0 ? 'AND ' + whereConditions.join(' AND ') : ''}
+      )
+      SELECT * FROM loan_payments
+      ORDER BY 
+        CASE status WHEN 'OVERDUE' THEN 1 WHEN 'PENDING' THEN 2 ELSE 3 END,
+        due_date ASC
+      LIMIT 100
+    `, params);
+
+    // Filter by status if provided
+    let payments = paymentsResult.rows;
+    if (status && status !== 'all') {
+      payments = payments.filter((p: any) => p.status.toLowerCase() === status.toString().toLowerCase());
+    }
+
+    res.json({
+      success: true,
+      data: payments.map((p: any) => ({
+        id: p.id,
+        user_id: p.user_id,
+        user_name: p.user_name,
+        user_email: p.user_email,
+        type: p.type,
+        amount: parseFloat(p.amount) || 0,
+        due_date: p.due_date,
+        paid_date: p.paid_date,
+        status: p.status,
+        reference_id: p.reference_id,
+        reference_name: p.reference_name || 'Loan Payment',
+      })),
+      count: payments.length,
+    });
+  } catch (error) {
+    console.error('Error fetching payment records:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch payment records',
+    });
+  }
+});
+
+// ==========================================
+// PAYMENT TRACKING - Get summary stats
+// ==========================================
+router.get('/payment-tracking/stats', async (req: Request, res: Response) => {
+  try {
+    // Get overall stats
+    const statsResult = await query(`
+      SELECT 
+        -- Overdue loans count
+        (SELECT COUNT(*) FROM loans WHERE status = 'ACTIVE' AND next_emi_date < CURRENT_DATE) as overdue_count,
+        
+        -- Overdue amount
+        (SELECT COALESCE(SUM(emi_amount), 0) FROM loans WHERE status = 'ACTIVE' AND next_emi_date < CURRENT_DATE) as overdue_amount,
+        
+        -- Pending payments (active loans with future due dates)
+        (SELECT COUNT(*) FROM loans WHERE status = 'ACTIVE' AND next_emi_date >= CURRENT_DATE) as pending_count,
+        
+        -- Total active loans
+        (SELECT COUNT(*) FROM loans WHERE status = 'ACTIVE') as total_active_loans,
+        
+        -- Total outstanding balance
+        (SELECT COALESCE(SUM(outstanding_balance), 0) FROM loans WHERE status = 'ACTIVE') as total_outstanding
+    `);
+
+    const stats = statsResult.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        overdue_count: parseInt(stats.overdue_count) || 0,
+        overdue_amount: parseFloat(stats.overdue_amount) || 0,
+        pending_count: parseInt(stats.pending_count) || 0,
+        total_active_loans: parseInt(stats.total_active_loans) || 0,
+        total_outstanding: parseFloat(stats.total_outstanding) || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch payment stats',
+    });
+  }
+});
+
 export default router;

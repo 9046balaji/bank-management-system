@@ -425,7 +425,63 @@ export const runMigrations = async () => {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_loan_payments_loan_id ON loan_payments(loan_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_loan_payments_paid_at ON loan_payments(paid_at DESC)`);
+    
+    // Add missing columns to loan_payments if they don't exist
+    const checkInterestAmount = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'loan_payments' AND column_name = 'interest_amount'
+    `);
+    if (checkInterestAmount.rowCount === 0) {
+      await pool.query(`ALTER TABLE loan_payments ADD COLUMN interest_amount DECIMAL(15, 2) DEFAULT 0`);
+      console.log('Added interest_amount column to loan_payments');
+    }
+    
+    const checkPrincipalAmount = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'loan_payments' AND column_name = 'principal_amount'
+    `);
+    if (checkPrincipalAmount.rowCount === 0) {
+      await pool.query(`ALTER TABLE loan_payments ADD COLUMN principal_amount DECIMAL(15, 2) DEFAULT 0`);
+      console.log('Added principal_amount column to loan_payments');
+    }
     console.log('Loan payments table ready');
+
+    // Create user_sessions table if not exists and add missing columns
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        session_token TEXT NOT NULL UNIQUE,
+        refresh_token TEXT,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        last_activity TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Fix session_token column type if it's VARCHAR (too short for JWT tokens)
+    const checkSessionTokenType = await pool.query(`
+      SELECT data_type, character_maximum_length 
+      FROM information_schema.columns 
+      WHERE table_name = 'user_sessions' AND column_name = 'session_token'
+    `);
+    if (checkSessionTokenType.rowCount && checkSessionTokenType.rows[0].data_type === 'character varying') {
+      await pool.query(`ALTER TABLE user_sessions ALTER COLUMN session_token TYPE TEXT`);
+      console.log('Changed session_token column to TEXT type');
+    }
+    
+    // Add refresh_token column to user_sessions if it doesn't exist
+    const checkRefreshToken = await pool.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'user_sessions' AND column_name = 'refresh_token'
+    `);
+    if (checkRefreshToken.rowCount === 0) {
+      await pool.query(`ALTER TABLE user_sessions ADD COLUMN refresh_token TEXT`);
+      console.log('Added refresh_token column to user_sessions');
+    }
+    console.log('User sessions table ready');
 
     console.log('Database migrations completed');
   } catch (error) {

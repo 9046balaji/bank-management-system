@@ -25,16 +25,42 @@ function getAuthToken(): string | null {
 
 // Error handling wrapper
 async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
-  const data = await response.json();
+  // Check if response has content
+  const contentType = response.headers.get('content-type');
+  const hasJson = contentType && contentType.includes('application/json');
+  
+  let data: any = null;
+  
+  try {
+    const text = await response.text();
+    if (text && hasJson) {
+      data = JSON.parse(text);
+    } else if (text) {
+      // Try to parse even if content-type is not set correctly
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { message: text };
+      }
+    }
+  } catch (parseError) {
+    console.error('Failed to parse response:', parseError);
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status} ${response.statusText}`);
+    }
+    data = { success: true };
+  }
+  
   if (!response.ok) {
     // Handle token expiration
     if (response.status === 401) {
       // Clear invalid token
       localStorage.removeItem(SESSION_TOKEN_KEY);
     }
-    throw new Error(data.error || data.message || 'An error occurred');
+    throw new Error(data?.error || data?.message || `Server error: ${response.status}`);
   }
-  return data;
+  
+  return data || { success: true };
 }
 
 // Request helper with error handling and automatic auth token
@@ -59,11 +85,19 @@ async function request<T>(
     },
   };
 
+  const url = `${API_BASE}${endpoint}`;
+  
   try {
-    const response = await fetch(`${API_BASE}${endpoint}`, config);
+    console.log(`[API] ${options.method || 'GET'} ${url}`);
+    const response = await fetch(url, config);
+    console.log(`[API] Response: ${response.status} ${response.statusText}`);
     return handleResponse<T>(response);
   } catch (error) {
-    console.error('API Error:', error);
+    console.error(`[API] Network Error for ${url}:`, error);
+    // Provide more specific error message
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+    }
     throw error;
   }
 }
