@@ -18,3 +18,9 @@ export {
   type CardAction,
   type UseOptimisticCardsResult,
 } from './useOptimisticCards';
+
+export {
+  useTheme,
+  type Theme,
+  type UseThemeReturn,
+} from './useTheme';

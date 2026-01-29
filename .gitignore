@@ -71,3 +71,22 @@ coverage/
 # Misc
 .cache/
 .parcel-cache/
+
+# Test files
+src/test/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.ts
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# ML model files (large binaries)
+

@@ -176,3 +176,43 @@ export interface UserState {
     dailyLimit: number;
   };
 }
+
+export interface FeedbackItem {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  type: string;
+  category: string;
+  subject: string;
+  description: string;
+  rating: number | null;
+  status: string;
+  admin_response: string | null;
+  responded_at: string | null;
+  responder_name: string | null;
+  is_public: boolean;
+  created_at: string;
+}
+
+export interface FeedbackStats {
+  total: number;
+  by_status: Record<string, number>;
+  by_type: Record<string, number>;
+  by_category: Record<string, number>;
+  average_rating: string;
+  rated_count: number;
+  recent_week: number;
+}
+
+export interface AIInsight {
+  id: string;
+  summary_text: string;
+  sentiment: string;
+  key_issues: string[];
+  solved_issues?: string[];
+  unsolved_issues?: string[];
+  action_items: string[];
+  model_used: string;
+  created_at: string;
+}

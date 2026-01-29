@@ -1,10 +1,14 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { View, UserRole, UserState, Transaction } from './types';
 import { INITIAL_STATE } from './constants';
 import { userApi } from './src/services/api';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import { ErrorBoundary, PageErrorFallback } from './src/components/ErrorBoundary';
+import { PageLoading, SectionLoading, DashboardSkeleton } from './src/components/Loading';
+
+// Eagerly loaded components (needed immediately)
 import Landing from './views/Landing';
 import Auth from './views/Auth';
 // 3D Auth Page - Set USE_3D_AUTH to true for immersive 3D login experience
@@ -12,20 +16,22 @@ import { Auth3DPage } from './src/components/3d';
 const USE_3D_AUTH = true;
 import KYC from './views/KYC';
 import Dashboard from './views/Dashboard';
-import Transfer from './views/Transfer';
-import ManageFunds from './views/ManageFunds';
-import Cards from './views/Cards';
-import Loans from './views/Loans';
-import Analytics from './views/Analytics';
-import Support from './views/Support';
-import Profile from './views/Profile';
-import AdminOverview from './views/AdminOverview';
-import AdminLoanApprovals from './views/AdminLoanApprovals';
-import AdminCardApprovals from './views/AdminCardApprovals';
-import AdminSystemConfig from './views/AdminSystemConfig';
-import AdminFeedback from './views/AdminFeedback';
-import AdminChat from './views/AdminChat';
-import AdminPaymentTracking from './views/AdminPaymentTracking';
+
+// Lazy loaded components (loaded on demand)
+const Transfer = lazy(() => import('./views/Transfer'));
+const ManageFunds = lazy(() => import('./views/ManageFunds'));
+const Cards = lazy(() => import('./views/Cards'));
+const Loans = lazy(() => import('./views/Loans'));
+const Analytics = lazy(() => import('./views/Analytics'));
+const Support = lazy(() => import('./views/Support'));
+const Profile = lazy(() => import('./views/Profile'));
+const AdminOverview = lazy(() => import('./views/AdminOverview'));
+const AdminLoanApprovals = lazy(() => import('./views/AdminLoanApprovals'));
+const AdminCardApprovals = lazy(() => import('./views/AdminCardApprovals'));
+const AdminSystemConfig = lazy(() => import('./views/AdminSystemConfig'));
+const AdminFeedback = lazy(() => import('./views/AdminFeedback'));
+const AdminChat = lazy(() => import('./views/AdminChat'));
+const AdminPaymentTracking = lazy(() => import('./views/AdminPaymentTracking'));
 
 // Session storage keys
 const SESSION_TOKEN_KEY = 'aura_session_token';
@@ -255,14 +261,7 @@ const App: React.FC = () => {
 
   // Show loading screen while restoring session
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="text-center">
-          <div className="size-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400 font-medium">Loading...</p>
-        </div>
-      </div>
-    );
+    return <PageLoading message="Restoring your session..." />;
   }
 
   // Helper to determine which view to render
@@ -355,23 +354,79 @@ const App: React.FC = () => {
       return null;
     }
 
-    // Protected Views
+    // Protected Views - Wrapped in Suspense for lazy loading
     switch (currentView) {
       case View.DASHBOARD: return <Dashboard user={user} setView={setCurrentView} />;
-      case View.TRANSFERS: return <Transfer user={user} onTransfer={addTransaction} />;
-      case View.MANAGE_FUNDS: return <ManageFunds user={user} onUpdate={addTransaction} onUserUpdate={handleUpdateUser} />;
-      case View.MY_CARDS: return <Cards user={user} onUpdate={(settings) => handleUpdateUser({ settings: { ...user.settings, ...settings } })} />;
-      case View.LOANS: return <Loans user={user} onPayment={(amount) => addTransaction({ type: 'LOAN_PAYMENT', amount, description: 'EMI Payment' })} />;
-      case View.ANALYTICS: return <Analytics user={user} />;
-      case View.SUPPORT: return <Support user={user} onNewTicket={(ticket) => handleUpdateUser({ tickets: [ticket, ...user.tickets] })} />;
-      case View.PROFILE: return <Profile user={user} onUpdate={handleUpdateUser} />;
-      case View.ADMIN_OVERVIEW: return <AdminOverview user={user} />;
-      case View.ADMIN_LOANS: return <AdminLoanApprovals user={user} />;
-      case View.ADMIN_CARDS: return <AdminCardApprovals user={user} />;
-      case View.ADMIN_PAYMENTS: return <AdminPaymentTracking user={user} />;
-      case View.ADMIN_FEEDBACK: return <AdminFeedback user={user} />;
-      case View.ADMIN_CHAT: return <AdminChat user={user} />;
-      case View.ADMIN_CONFIG: return <AdminSystemConfig user={user} onUpdate={(s) => handleUpdateUser({ settings: { ...user.settings, ...s } })} />;
+      case View.TRANSFERS: return (
+        <Suspense fallback={<SectionLoading message="Loading transfers..." />}>
+          <Transfer user={user} onTransfer={addTransaction} />
+        </Suspense>
+      );
+      case View.MANAGE_FUNDS: return (
+        <Suspense fallback={<SectionLoading message="Loading funds management..." />}>
+          <ManageFunds user={user} onUpdate={addTransaction} onUserUpdate={handleUpdateUser} />
+        </Suspense>
+      );
+      case View.MY_CARDS: return (
+        <Suspense fallback={<SectionLoading message="Loading cards..." />}>
+          <Cards user={user} onUpdate={(settings) => handleUpdateUser({ settings: { ...user.settings, ...settings } })} />
+        </Suspense>
+      );
+      case View.LOANS: return (
+        <Suspense fallback={<SectionLoading message="Loading loans..." />}>
+          <Loans user={user} onPayment={(amount) => addTransaction({ type: 'LOAN_PAYMENT', amount, description: 'EMI Payment' })} />
+        </Suspense>
+      );
+      case View.ANALYTICS: return (
+        <Suspense fallback={<DashboardSkeleton />}>
+          <Analytics user={user} />
+        </Suspense>
+      );
+      case View.SUPPORT: return (
+        <Suspense fallback={<SectionLoading message="Loading support..." />}>
+          <Support user={user} onNewTicket={(ticket) => handleUpdateUser({ tickets: [ticket, ...user.tickets] })} />
+        </Suspense>
+      );
+      case View.PROFILE: return (
+        <Suspense fallback={<SectionLoading message="Loading profile..." />}>
+          <Profile user={user} onUpdate={handleUpdateUser} />
+        </Suspense>
+      );
+      case View.ADMIN_OVERVIEW: return (
+        <Suspense fallback={<DashboardSkeleton />}>
+          <AdminOverview user={user} />
+        </Suspense>
+      );
+      case View.ADMIN_LOANS: return (
+        <Suspense fallback={<SectionLoading message="Loading loan approvals..." />}>
+          <AdminLoanApprovals user={user} />
+        </Suspense>
+      );
+      case View.ADMIN_CARDS: return (
+        <Suspense fallback={<SectionLoading message="Loading card approvals..." />}>
+          <AdminCardApprovals user={user} />
+        </Suspense>
+      );
+      case View.ADMIN_PAYMENTS: return (
+        <Suspense fallback={<SectionLoading message="Loading payment tracking..." />}>
+          <AdminPaymentTracking user={user} />
+        </Suspense>
+      );
+      case View.ADMIN_FEEDBACK: return (
+        <Suspense fallback={<SectionLoading message="Loading feedback..." />}>
+          <AdminFeedback user={user} />
+        </Suspense>
+      );
+      case View.ADMIN_CHAT: return (
+        <Suspense fallback={<SectionLoading message="Loading chat..." />}>
+          <AdminChat user={user} />
+        </Suspense>
+      );
+      case View.ADMIN_CONFIG: return (
+        <Suspense fallback={<SectionLoading message="Loading configuration..." />}>
+          <AdminSystemConfig user={user} onUpdate={(s) => handleUpdateUser({ settings: { ...user.settings, ...s } })} />
+        </Suspense>
+      );
       default: return <Dashboard user={user} setView={setCurrentView} />;
     }
   };
@@ -379,31 +434,39 @@ const App: React.FC = () => {
   const isPublicView = [View.LANDING, View.LOGIN, View.REGISTER, View.FORGOT_PASSWORD, View.KYC].includes(currentView);
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 transition-colors">
-      {!isPublicView && (
-        <Sidebar 
-          currentView={currentView} 
-          setView={setCurrentView} 
-          role={user.role} 
-        />
-      )}
-      
-      <div className="flex-1 flex flex-col min-w-0">
+    <ErrorBoundary fallback={<PageErrorFallback onRetry={() => window.location.reload()} />}>
+      <div className="min-h-screen flex flex-col md:flex-row bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 transition-colors">
         {!isPublicView && (
-          <Header 
-            user={user} 
-            toggleDarkMode={toggleDarkMode} 
-            isDarkMode={isDarkMode} 
-            onLogout={handleLogout}
-            setView={setCurrentView}
+          <Sidebar 
+            currentView={currentView} 
+            setView={setCurrentView} 
+            role={user.role} 
           />
         )}
         
-        <main className={`flex-1 overflow-auto ${!isPublicView ? 'p-4 md:p-8 animate-slide-up' : ''}`}>
-          {renderContent()}
-        </main>
+        <div className="flex-1 flex flex-col min-w-0">
+          {!isPublicView && (
+            <Header 
+              user={user} 
+              toggleDarkMode={toggleDarkMode} 
+              isDarkMode={isDarkMode} 
+              onLogout={handleLogout}
+              setView={setCurrentView}
+            />
+          )}
+          
+          <main 
+            className={`flex-1 overflow-auto ${!isPublicView ? 'p-4 md:p-8 animate-slide-up' : ''}`}
+            role="main"
+            aria-label="Main content"
+          >
+            <ErrorBoundary>
+              {renderContent()}
+            </ErrorBoundary>
+          </main>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 

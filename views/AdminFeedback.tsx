@@ -1,49 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { UserState } from '../types';
 
-interface FeedbackItem {
-  id: string;
-  user_id: string;
-  user_name: string;
-  user_email: string;
-  type: string;
-  category: string;
-  subject: string;
-  description: string;
-  rating: number | null;
-  status: string;
-  admin_response: string | null;
-  responded_at: string | null;
-  responder_name: string | null;
-  is_public: boolean;
-  created_at: string;
-}
-
-interface FeedbackStats {
-  total: number;
-  by_status: Record<string, number>;
-  by_type: Record<string, number>;
-  by_category: Record<string, number>;
-  average_rating: string;
-  rated_count: number;
-  recent_week: number;
-}
-
-interface AIInsight {
-  id: string;
-  summary_text: string;
-  sentiment: string;
-  key_issues: string[];
-  action_items: string[];
-  model_used: string;
-  created_at: string;
-}
+import { FeedbackItem, FeedbackStats, AIInsight } from '../types';
 
 interface AdminFeedbackProps {
   user: UserState;
 }
 
-const API_BASE = 'http://localhost:5000/api';
+import api from '../src/services/api';
 
 const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
@@ -61,7 +25,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
   const [currentInsight, setCurrentInsight] = useState<any>(null);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [responseText, setResponseText] = useState('');
-  
+
   // Chat state
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [chatInput, setChatInput] = useState('');
@@ -81,10 +45,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
       if (filters.type !== 'ALL') params.append('type', filters.type);
       if (filters.category !== 'ALL') params.append('category', filters.category);
 
-      const response = await fetch(`${API_BASE}/admin/ai/feedback?${params}`, {
-        credentials: 'include',
-      });
-      const data = await response.json();
+      const data = await api.adminAi.getFeedback(filters);
       if (data.success) {
         setFeedback(data.data);
       }
@@ -97,10 +58,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${API_BASE}/admin/ai/feedback/stats`, {
-        credentials: 'include',
-      });
-      const data = await response.json();
+      const data = await api.adminAi.getStats();
       if (data.success) {
         setStats(data.data);
       }
@@ -111,10 +69,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
 
   const fetchInsights = async () => {
     try {
-      const response = await fetch(`${API_BASE}/admin/ai/feedback/insights`, {
-        credentials: 'include',
-      });
-      const data = await response.json();
+      const data = await api.adminAi.getInsights();
       if (data.success) {
         setInsights(data.data);
       }
@@ -141,19 +96,10 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
 
   const handleSummarize = async () => {
     if (selectedIds.length === 0) return;
-    
+
     setSummarizing(true);
     try {
-      const response = await fetch(`${API_BASE}/admin/ai/feedback/summarize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          feedback_ids: selectedIds,
-          admin_id: user.id,
-        }),
-      });
-      const data = await response.json();
+      const data = await api.adminAi.summarize(selectedIds, user.id);
       if (data.success) {
         setCurrentInsight(data.data.ai_response);
         fetchInsights();
@@ -167,19 +113,9 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
 
   const handleRespond = async (feedbackId: string) => {
     if (!responseText.trim()) return;
-    
+
     try {
-      const response = await fetch(`${API_BASE}/admin/ai/feedback/${feedbackId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          status: 'RESOLVED',
-          admin_response: responseText,
-          responded_by: user.id,
-        }),
-      });
-      const data = await response.json();
+      const data = await api.adminAi.respond(feedbackId, responseText, user.id);
       if (data.success) {
         setRespondingTo(null);
         setResponseText('');
@@ -192,29 +128,23 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
 
   const handleChat = async () => {
     if (!chatInput.trim()) return;
-    
+
     const userMessage = chatInput;
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setChatInput('');
     setChatLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/admin/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          message: userMessage,
-          context: `Feedback stats: ${JSON.stringify(stats)}`,
-        }),
-      });
-      const data = await response.json();
+      const data = await api.adminAi.chat(userMessage, `Feedback stats: ${JSON.stringify(stats)}`);
       if (data.success) {
         setChatMessages(prev => [...prev, { role: 'assistant', content: data.data.response }]);
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Sorry, I encountered an error.' }]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in chat:', error);
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error.' }]);
+      const errorMessage = error?.message || 'Sorry, I encountered an error. Please make sure you are logged in as an admin.';
+      setChatMessages(prev => [...prev, { role: 'assistant', content: errorMessage }]);
     } finally {
       setChatLoading(false);
     }
@@ -318,11 +248,10 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${
-              activeTab === tab
-                ? 'bg-white dark:bg-slate-900 text-primary shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
+            className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === tab
+              ? 'bg-white dark:bg-slate-900 text-primary shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+              }`}
           >
             <span className="flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">
@@ -353,10 +282,38 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
               <span className="material-symbols-outlined">close</span>
             </button>
           </div>
-          
+
           <p className="text-slate-700 dark:text-slate-300 mb-4">{currentInsight.summary}</p>
-          
-          {currentInsight.key_issues?.length > 0 && (
+
+          {currentInsight.solved_issues?.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-slate-500 mb-2">Solved Issues</h4>
+              <div className="flex flex-wrap gap-2">
+                {currentInsight.solved_issues.map((issue: string, idx: number) => (
+                  <span key={idx} className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                    {issue}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentInsight.unsolved_issues?.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-bold text-slate-500 mb-2">Unsolved Issues</h4>
+              <div className="flex flex-wrap gap-2">
+                {currentInsight.unsolved_issues.map((issue: string, idx: number) => (
+                  <span key={idx} className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {issue}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {currentInsight.key_issues?.length > 0 && !currentInsight.unsolved_issues?.length && (
             <div className="mb-4">
               <h4 className="text-sm font-bold text-slate-500 mb-2">Key Issues</h4>
               <div className="flex flex-wrap gap-2">
@@ -368,7 +325,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
               </div>
             </div>
           )}
-          
+
           {currentInsight.action_items?.length > 0 && (
             <div>
               <h4 className="text-sm font-bold text-slate-500 mb-2">Action Items</h4>
@@ -573,9 +530,37 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
                   </div>
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 mb-4">{insight.summary_text}</p>
-                
+
                 <div className="grid md:grid-cols-2 gap-4">
-                  {insight.key_issues?.length > 0 && (
+                  {insight.solved_issues && insight.solved_issues.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-500 mb-2">Solved Issues</h4>
+                      <div className="space-y-1">
+                        {insight.solved_issues.map((issue, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                            {issue}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {insight.unsolved_issues && insight.unsolved_issues.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-500 mb-2">Unsolved Issues</h4>
+                      <div className="space-y-1">
+                        {insight.unsolved_issues.map((issue, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <span className="material-symbols-outlined text-red-500 text-sm">error</span>
+                            {issue}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {insight.key_issues?.length > 0 && !insight.unsolved_issues?.length && (
                     <div>
                       <h4 className="text-sm font-bold text-slate-500 mb-2">Key Issues</h4>
                       <div className="space-y-1">
@@ -588,7 +573,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
                       </div>
                     </div>
                   )}
-                  
+
                   {insight.action_items?.length > 0 && (
                     <div>
                       <h4 className="text-sm font-bold text-slate-500 mb-2">Action Items</h4>
@@ -614,21 +599,28 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <h3 className="font-bold flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">smart_toy</span>
-              AI Assistant
+              Feedback Analysis Assistant
             </h3>
-            <p className="text-sm text-slate-500">Ask questions about feedback, get suggestions, or analyze trends</p>
+            <p className="text-sm text-slate-500">Ask questions about feedback, get summaries, retrieve feedback data, or analyze trends</p>
+            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">info</span>
+              This assistant only handles feedback-related queries
+            </p>
           </div>
-          
+
           <div className="h-[400px] overflow-y-auto p-4 space-y-4">
             {chatMessages.length === 0 ? (
               <div className="text-center text-slate-400 py-8">
                 <span className="material-symbols-outlined text-5xl mb-2">chat</span>
-                <p>Start a conversation with the AI assistant</p>
+                <p>Start a conversation about feedback</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   {[
                     'Summarize recent complaints',
                     'What are the top issues?',
-                    'How is user satisfaction trending?',
+                    'Show me resolved feedback',
+                    'List new complaints',
+                    'How is user satisfaction?',
+                    'Retrieve all bug reports',
                   ].map(suggestion => (
                     <button
                       key={suggestion}
@@ -647,11 +639,10 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] p-3 rounded-2xl ${
-                      msg.role === 'user'
-                        ? 'bg-primary text-white rounded-br-sm'
-                        : 'bg-slate-100 dark:bg-slate-800 rounded-bl-sm'
-                    }`}
+                    className={`max-w-[80%] p-3 rounded-2xl ${msg.role === 'user'
+                      ? 'bg-primary text-white rounded-br-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 rounded-bl-sm'
+                      }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   </div>
@@ -666,7 +657,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
               </div>
             )}
           </div>
-          
+
           <div className="p-4 border-t border-slate-100 dark:border-slate-800">
             <div className="flex gap-2">
               <input
@@ -674,7 +665,7 @@ const AdminFeedback: React.FC<AdminFeedbackProps> = ({ user }) => {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleChat()}
-                placeholder="Ask about feedback trends, issues, or suggestions..."
+                placeholder="Ask about feedback: summarize, retrieve, analyze trends..."
                 className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none"
               />
               <button

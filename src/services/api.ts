@@ -44,16 +44,19 @@ async function request<T>(
   additionalHeaders: Record<string, string> = {}
 ): Promise<ApiResponse<T>> {
   const token = getAuthToken();
-  
+
+  // Extract headers from options to merge properly
+  const { headers: optionHeaders, ...restOptions } = options;
+
   const config: RequestInit = {
     credentials: 'include', // Include cookies for HttpOnly tokens
+    ...restOptions,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...additionalHeaders,
-      ...options.headers,
+      ...(optionHeaders as Record<string, string> || {}),
     },
-    ...options,
   };
 
   try {
@@ -72,14 +75,14 @@ async function requestWithIdempotency<T>(
   idempotencyKey?: string
 ): Promise<ApiResponse<T>> {
   const additionalHeaders: Record<string, string> = {};
-  
+
   if (idempotencyKey) {
     additionalHeaders['Idempotency-Key'] = idempotencyKey;
   } else {
     // Generate a key if not provided
     additionalHeaders['Idempotency-Key'] = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
-  
+
   return request<T>(endpoint, options, additionalHeaders);
 }
 
@@ -548,7 +551,7 @@ export const supportApi = {
     }),
 
   // ==================== FEEDBACK ====================
-  
+
   // Submit feedback
   submitFeedback: (feedbackData: {
     user_id: string;
@@ -753,7 +756,7 @@ export const mlApi = {
   // ==========================================
   // EXPENSE CATEGORIZATION (TF-IDF + Logistic Regression)
   // ==========================================
-  
+
   // Categorize a single transaction description
   categorizeExpense: (description: string) =>
     request<{
@@ -786,6 +789,53 @@ export const mlApi = {
     }),
 };
 
+import { FeedbackItem, FeedbackStats, AIInsight } from '../../types';
+
+// ==========================================
+// ADMIN AI API (Feedback & Insights)
+// ==========================================
+export const adminAiApi = {
+  // Get all feedback
+  getFeedback: (filters?: { status?: string; type?: string; category?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status && filters.status !== 'ALL') params.append('status', filters.status);
+    if (filters?.type && filters.type !== 'ALL') params.append('type', filters.type);
+    if (filters?.category && filters.category !== 'ALL') params.append('category', filters.category);
+    return request<FeedbackItem[]>(`/admin/ai/feedback?${params.toString()}`);
+  },
+
+  // Get feedback stats
+  getStats: () => request<FeedbackStats>('/admin/ai/feedback/stats'),
+
+  // Get insights
+  getInsights: () => request<AIInsight[]>('/admin/ai/feedback/insights'),
+
+  // Summarize feedback
+  summarize: (feedbackIds: string[], adminId: string) =>
+    request<{ insight: AIInsight; ai_response: any; feedback_count: number }>('/admin/ai/feedback/summarize', {
+      method: 'POST',
+      body: JSON.stringify({ feedback_ids: feedbackIds, admin_id: adminId }),
+    }),
+
+  // Respond to feedback
+  respond: (id: string, response: string, respondedBy: string) =>
+    request<FeedbackItem>(`/admin/ai/feedback/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        status: 'RESOLVED',
+        admin_response: response,
+        responded_by: respondedBy,
+      }),
+    }),
+
+  // Chat with AI
+  chat: (message: string, context?: string) =>
+    request<{ response: string; model: string }>('/admin/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, context }),
+    }),
+};
+
 // Default export with all APIs
 const api = {
   users: userApi,
@@ -798,6 +848,7 @@ const api = {
   analytics: analyticsApi,
   config: configApi,
   ml: mlApi,
+  adminAi: adminAiApi,
 };
 
 export default api;
