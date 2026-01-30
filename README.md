@@ -1,144 +1,220 @@
-# Aura Bank Frontend Documentation
+# 🏦 Aura Bank - Integrated Fintech Ecosystem
 
-## 📋 Table of Contents
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Project Structure](#project-structure)
-4. [Component Hierarchy](#component-hierarchy)
-5. [Views Documentation](#views-documentation)
-6. [State Management](#state-management)
-7. [API Integration](#api-integration)
-8. [Styling & Theming](#styling--theming)
-9. [Installation & Setup](#installation--setup)
-10. [Configuration](#configuration)
+<div align="center">
 
----
+![Aura Bank Logo](https://img.shields.io/badge/AURA-BANK-135bec?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0wIDE4Yy00LjQxIDAtOC0zLjU5LTgtOHMzLjU5LTggOC04IDggMy41OSA4IDgtMy41OSA4LTggOHptLjMxLTguODZjLTEuNzctLjQ1LTIuMzQtLjk0LTIuMzQtMS42NyAwLS44NC43OS0xLjQzIDIuMS0xLjQzIDEuMzggMCAxLjkuNjYgMS45NCAxLjY0aDEuNzFjLS4wNS0xLjM0LS44Ny0yLjU3LTIuNDktMi45N1Y1SDEwLjl2MS42OWMtMS41MS4zMi0yLjcyIDEuMy0yLjcyIDIuODEgMCAxLjc5IDEuNDkgMi42OCAzLjY2IDMuMjEgMS45NS40NyAyLjM0IDEuMTUgMi4zNCAxLjg3IDAgLjUzLS4zOSAxLjM5LTIuMSAxLjM5LTEuNiAwLTIuMjMtLjcyLTIuMzItMS42NEg4LjA0Yy4xIDEuNyAxLjM2IDIuNjYgMi44NiAyLjk3VjE5aDIuMzR2LTEuNjdjMS41Mi0uMjkgMi43Mi0xLjE2IDIuNzItMi43NCAwLTIuMi0xLjktMi45NS0zLjY1LTMuNDV6Ii8+PC9zdmc+)
 
-## 🏦 Overview
+**A Modern, AI-Powered Banking Management System**
 
-The Aura Bank Frontend is a modern React-based single-page application (SPA) that provides a comprehensive digital banking experience. Built with React 19, TypeScript, and Vite, it offers both user and admin interfaces with real-time data visualization, ML-powered features, and a polished UI/UX.
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=flat-square&logo=node.js)](https://nodejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![Python](https://img.shields.io/badge/Python-ML_API-3776AB?style=flat-square&logo=python)](https://www.python.org/)
 
-### Key Features
-- 🎨 Modern UI with Dark/Light Mode Support
-- 📊 Interactive Charts & Analytics (Recharts)
-- 🔐 Session-Based Authentication
-- 💳 Card Management with Real-time Controls
-- 💰 Fund Transfers & Deposits
-- 📈 ML-Powered Loan Predictions
-- 🎫 Customer Support with AI Chat
-- 👨‍💼 Admin Dashboard with Analytics
+[Live Demo](#demo) • [Features](#features) • [Installation](#installation) • [Documentation](#documentation)
+
+</div>
 
 ---
 
-## 🏗️ Architecture
+## 📖 About
+
+**Aura Bank** is a comprehensive, full-stack banking management system that brings together modern web technologies and AI-powered features. Designed for both customers and administrators, it provides a seamless digital banking experience with real-time transactions, intelligent loan analysis, fraud detection, and much more.
+
+> 🎯 **Perfect for**: Learning fintech development, hackathon projects, or as a foundation for production banking applications.
+
+---
+
+## 🏗️ System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           AURA BANK FRONTEND                                 │
-│                    React 19 + TypeScript + Vite                             │
+│                              AURA BANK ARCHITECTURE                          │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                    │
+
+                                    ┌──────────────┐
+                                    │    Users     │
+                                    │  (Customers  │
+                                    │   & Admins)  │
+                                    └──────┬───────┘
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           🖥️  FRONTEND (React + TypeScript)                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │  Dashboard  │  │  Transfers  │  │    Loans    │  │   Admin Panel       │ │
+│  │  • Balance  │  │  • IMPS     │  │  • Apply    │  │   • User Mgmt       │ │
+│  │  • Charts   │  │  • NEFT     │  │  • Track    │  │   • Loan Approvals  │ │
+│  │  • Alerts   │  │  • QR Pay   │  │  • AI Score │  │   • Analytics       │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │   Cards     │  │  Analytics  │  │   Support   │  │   3D Auth Page      │ │
+│  │  • Debit    │  │  • Graphs   │  │  • Tickets  │  │   • Three.js        │ │
+│  │  • Credit   │  │  • Reports  │  │  • AI Chat  │  │   • Animations      │ │
+│  │  • Controls │  │  • Export   │  │  • FAQ      │  │   • Visual Effects  │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└───────────────────────────────────┬─────────────────────────────────────────┘
+                                    │ REST API
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              APP LAYER                                       │
-│                           (App.tsx)                                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
-│  │  State Manager  │    │   View Router   │    │  Auth Handler   │         │
-│  │  (UserState)    │    │  (currentView)  │    │  (Session)      │         │
-│  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    ▼               ▼               ▼
-            ┌───────────┐   ┌───────────────┐   ┌───────────────┐
-            │ LANDING   │   │   AUTH FLOW   │   │  MAIN APP     │
-            │           │   │               │   │               │
-            │ Landing   │   │ Login         │   │ Sidebar       │
-            │           │   │ Register      │   │ Header        │
-            │           │   │ KYC           │   │ Views...      │
-            └───────────┘   └───────────────┘   └───────────────┘
-                                                        │
-                                    ┌───────────────────┼───────────────────┐
-                                    ▼                   ▼                   ▼
-                            ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-                            │  USER VIEWS   │   │ ADMIN VIEWS   │   │   SHARED      │
-                            ├───────────────┤   ├───────────────┤   ├───────────────┤
-                            │ Dashboard     │   │ AdminOverview │   │ Header        │
-                            │ Transfer      │   │ LoanApprovals │   │ Sidebar       │
-                            │ ManageFunds   │   │ SystemConfig  │   │ Toast         │
-                            │ Cards         │   │               │   │ Modals        │
-                            │ Loans         │   │               │   │               │
-                            │ Analytics     │   │               │   │               │
-                            │ Support       │   │               │   │               │
-                            │ Profile       │   │               │   │               │
-                            └───────────────┘   └───────────────┘   └───────────────┘
-                                    │
-                                    ▼
-                        ┌───────────────────────┐
-                        │    API SERVICE LAYER  │
-                        │    (src/services/api) │
-                        ├───────────────────────┤
-                        │ userApi               │
-                        │ accountApi            │
-                        │ transactionApi        │
-                        │ loanApi               │
-                        │ cardApi               │
-                        │ supportApi            │
-                        │ analyticsApi          │
-                        │ configApi             │
-                        │ mlApi                 │
-                        │ withdrawalApi         │
-                        └───────────────────────┘
-                                    │
-                                    │ HTTP/REST
-                                    ▼
-                        ┌───────────────────────┐
-                        │   EXPRESS BACKEND     │
-                        │   (localhost:5000)    │
-                        └───────────────────────┘
-```
+│                        ⚙️  BACKEND (Node.js + Express)                       │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                           API Routes                                    │ │
+│  │  /users  /accounts  /transactions  /loans  /cards  /support  /analytics│ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │   Auth      │  │  Security   │  │   Ledger    │  │   Services          │ │
+│  │  • JWT      │  │  • Rate     │  │  • Double   │  │   • Circuit Breaker │ │
+│  │  • bcrypt   │  │    Limit    │  │    Entry    │  │   • Idempotency     │ │
+│  │  • Refresh  │  │  • CORS     │  │  • Atomic   │  │   • Error Handling  │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└───────────────────────────┬───────────────────────────┬─────────────────────┘
+                            │                           │
+                            ▼                           ▼
+┌───────────────────────────────────────┐  ┌──────────────────────────────────┐
+│       🗄️  PostgreSQL Database         │  │     🤖  ML API (Python/Flask)    │
+│                                       │  │                                  │
+│  • Users & Authentication             │  │  • Fraud Detection Model         │
+│  • Accounts & Transactions            │  │  • Loan Eligibility Predictor    │
+│  • Loans & Cards                      │  │  • Expense Categorization        │
+│  • Ledger Entries (Double-Entry)      │  │  • TF-IDF + Logistic Regression  │
+│  • Support Tickets & Feedback         │  │  • Real-time Risk Assessment     │
+└───────────────────────────────────────┘  └──────────────────────────────────┘
 
-### Data Flow Diagram
-
-```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              DATA FLOW                                       │
+│                          🔌  External Integrations                           │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐│
+│   │   Ollama    │  │ DuckDuckGo  │  │  LangChain  │  │    Web Search       ││
+│   │   (Local    │  │   Search    │  │   Agents    │  │    Integration      ││
+│   │    LLM)     │  │     API     │  │             │  │                     ││
+│   └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘│
 └─────────────────────────────────────────────────────────────────────────────┘
+```
 
-   User Action                  App State                    Backend
-   ───────────                  ─────────                    ───────
-        │                           │                            │
-        │  Click/Input              │                            │
-        ├──────────────────────────▶│                            │
-        │                           │  API Call                  │
-        │                           ├───────────────────────────▶│
-        │                           │                            │
-        │                           │    ◀─ JSON Response ──────┤
-        │                           │                            │
-        │                           │  mapUserData()             │
-        │                           │  setUser(newState)         │
-        │                           │                            │
-        │    ◀── Re-render ────────┤                            │
-        │                           │                            │
+---
 
-Example: Login Flow
-───────────────────
-User                    Auth.tsx                   API                     Backend
-  │                        │                        │                         │
-  ├── Submit Login ───────▶│                        │                         │
-  │                        ├── userApi.login() ────▶│                         │
-  │                        │                        ├── POST /api/users/login ▶│
-  │                        │                        │                         │
-  │                        │                        │◀── { user, token } ─────┤
-  │                        │◀── Response ──────────┤                         │
-  │                        │                        │                         │
-  │                        ├── onLogin(userData)   │                         │
-  │                        │                        │                         │
-  │◀── Navigate to ────────┤                        │                         │
-  │    Dashboard           │                        │                         │
+## ✨ Features
+
+### 👤 Customer Features
+
+| Feature | Description |
+|---------|-------------|
+| 🏠 **Smart Dashboard** | Real-time balance, recent transactions, spending charts, and fraud alerts |
+| 💸 **Money Transfers** | Instant transfers via IMPS, NEFT, UPI, and QR code scanning |
+| 💳 **Card Management** | Debit/Credit card controls, freeze/unfreeze, limit settings, PIN change |
+| 📊 **Analytics** | Spending insights, category breakdown, income vs expense trends |
+| 🏦 **Loan Services** | AI-powered loan eligibility, EMI calculator, loan tracking |
+| 💰 **Fund Management** | Link external banks, cheque deposits, ATM locator, bill payments |
+| 🎫 **Support Center** | Create tickets, AI chatbot assistance, FAQ section |
+| 🔔 **Smart Alerts** | Fraud detection alerts, low balance warnings, transaction notifications |
+
+### 👨‍💼 Admin Features
+
+| Feature | Description |
+|---------|-------------|
+| 📈 **Overview Dashboard** | Bank-wide statistics, user growth, deposit trends |
+| ✅ **Loan Approvals** | Review applications, AI risk scores, approve/reject with comments |
+| 💳 **Card Approvals** | Credit card application management |
+| 💬 **AI Chat Assistant** | Banking knowledge base with live web search capability |
+| 📝 **Feedback Management** | Customer feedback analysis with AI-generated insights |
+| ⚙️ **System Configuration** | Interest rates, maintenance mode, global settings |
+| 📊 **Payment Tracking** | Monitor all transactions and loan repayments |
+
+### 🤖 AI & ML Features
+
+| Feature | Technology |
+|---------|------------|
+| 🔍 **Fraud Detection** | Machine learning model trained on transaction patterns |
+| 📈 **Loan Risk Analysis** | DTI calculation, employment verification, credit scoring |
+| 🏷️ **Expense Categorization** | TF-IDF + Logistic Regression for smart categorization |
+| 💬 **AI Chat Support** | Ollama-powered local LLM for customer queries |
+| 🌐 **Live Search** | DuckDuckGo integration for real-time banking information |
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **React 19** - Modern UI library with hooks
+- **TypeScript 5.8** - Type-safe JavaScript
+- **Vite 6** - Fast build tool and dev server
+- **Tailwind CSS** - Utility-first styling
+- **Three.js** - 3D graphics for immersive login page
+- **Recharts** - Beautiful data visualizations
+- **QRCode.react** - QR code generation
+
+### Backend
+- **Node.js** - JavaScript runtime
+- **Express 4.18** - Web framework
+- **TypeScript** - Type safety
+- **PostgreSQL** - Relational database
+- **JWT** - Secure authentication
+- **bcrypt** - Password hashing
+- **Zod** - Input validation
+
+### Machine Learning
+- **Python 3.x** - ML runtime
+- **Flask** - ML API server
+- **scikit-learn** - ML algorithms
+- **joblib/pickle** - Model serialization
+- **pandas/numpy** - Data processing
+
+### AI & Integrations
+- **Ollama** - Local LLM inference
+- **LangChain** - AI agent framework
+- **DuckDuckGo Search** - Web search integration
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+ 
+- PostgreSQL 15+
+- Python 3.9+
+- Ollama (optional, for AI chat)
+
+### Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/9046balaji/bank-management-system.git
+cd bank-management-system
+
+# 2. Install all dependencies
+npm run install:all
+
+# 3. Set up environment variables
+cp backend/.env.example backend/.env.local
+# Edit the .env.local file with your database credentials
+
+# 4. Initialize the database
+# Run the SQL scripts in /database folder in order:
+# - schema.sql
+# - seed.sql
+
+# 5. Start the application
+npm start
+```
+
+### Running Individual Services
+
+```bash
+# Frontend only (port 5173)
+npm run dev:frontend
+
+# Backend only (port 5000)
+npm run dev:backend
+
+# ML API (port 5001)
+npm run dev:ml
+
+# All services together
+npm run dev:all
 ```
 
 ---
@@ -146,930 +222,113 @@ User                    Auth.tsx                   API                     Backe
 ## 📁 Project Structure
 
 ```
-aura-bank-frontend/
+bank-management-system/
+├── 📂 backend/               # Node.js Express API
+│   ├── src/
+│   │   ├── controllers/      # Request handlers
+│   │   ├── db/               # Database connection
+│   │   ├── middleware/       # Auth, rate limiting, errors
+│   │   ├── routes/           # API endpoints
+│   │   ├── services/         # Business logic
+│   │   └── utils/            # Helper functions
+│   └── tests/                # API tests
 │
-├── package.json              # Dependencies & scripts
-├── tsconfig.json             # TypeScript configuration
-├── vite.config.ts            # Vite bundler configuration
-├── index.html                # HTML entry point
-├── FRONTEND_README.md        # This documentation file
+├── 📂 src/                   # Frontend source
+│   ├── components/           # Reusable UI components
+│   │   └── 3d/               # Three.js components
+│   ├── contexts/             # React context providers
+│   ├── hooks/                # Custom React hooks
+│   ├── services/             # API client
+│   └── utils/                # Frontend utilities
 │
-├── App.tsx                   # Main application component
-├── index.tsx                 # React entry point
-├── types.ts                  # TypeScript type definitions
-├── constants.ts              # Initial state & constants
-│
-├── components/               # Shared/Layout Components
-│   ├── Header.tsx            # Top navigation bar
-│   └── Sidebar.tsx           # Side navigation menu
-│
-├── views/                    # Page Components
-│   ├── Landing.tsx           # Landing page (unauthenticated)
-│   ├── Auth.tsx              # Login/Register forms
-│   ├── KYC.tsx               # KYC verification flow
+├── 📂 views/                 # Page components
 │   ├── Dashboard.tsx         # Main user dashboard
-│   ├── Transfer.tsx          # Money transfer interface
-│   ├── ManageFunds.tsx       # Deposit/Withdrawal
+│   ├── Transfer.tsx          # Money transfers
 │   ├── Cards.tsx             # Card management
-│   ├── Loans.tsx             # Loan tracking & applications
-│   ├── Analytics.tsx         # Financial analytics
-│   ├── Support.tsx           # Support tickets & AI chat
-│   ├── Profile.tsx           # User settings & profile
-│   ├── AdminOverview.tsx     # Admin dashboard
-│   ├── AdminLoanApprovals.tsx# Loan approval desk
-│   └── AdminSystemConfig.tsx # System configuration
+│   ├── Loans.tsx             # Loan services
+│   ├── Analytics.tsx         # Spending analytics
+│   ├── Support.tsx           # Help & support
+│   ├── Admin*.tsx            # Admin panel views
+│   └── ...
 │
-└── src/
-    └── services/
-        └── api.ts            # API service layer (all API calls)
-```
-
----
-
-## 🧩 Component Hierarchy
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         COMPONENT HIERARCHY                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-App (Root)
+├── 📂 model/                 # ML models & API
+│   ├── ml_api.py             # Flask ML server
+│   ├── *.pkl                 # Trained models
+│   └── requirements.txt      # Python dependencies
 │
-├── [Unauthenticated]
-│   ├── Landing
-│   │   └── Feature Cards
-│   │
-│   └── Auth
-│       ├── Login Form
-│       ├── Register Form
-│       └── Forgot Password
+├── 📂 database/              # SQL scripts
+│   ├── schema.sql            # Database schema
+│   ├── seed.sql              # Sample data
+│   └── migrations/           # Schema updates
 │
-├── [KYC Flow]
-│   └── KYC
-│       ├── Step 1: Personal Details
-│       ├── Step 2: ID Verification
-│       └── Step 3: PIN Setup
-│
-└── [Authenticated]
-    │
-    ├── Sidebar
-    │   ├── Logo & Branding
-    │   ├── Navigation Items
-    │   └── Version Info
-    │
-    ├── Header
-    │   ├── Search Bar
-    │   ├── Dark Mode Toggle
-    │   └── User Menu Dropdown
-    │
-    └── [Content Area - Views]
-        │
-        ├── [USER ROLE]
-        │   │
-        │   ├── Dashboard
-        │   │   ├── Balance Overview
-        │   │   ├── Fraud Alert Banner
-        │   │   ├── Quick Actions
-        │   │   ├── Expense Pie Chart
-        │   │   ├── Stats Cards
-        │   │   └── Transaction List
-        │   │
-        │   ├── Transfer
-        │   │   ├── Bank Selection (Aura/Other)
-        │   │   ├── Account Verification
-        │   │   ├── Amount Entry
-        │   │   ├── PIN Confirmation
-        │   │   └── Success/Receipt
-        │   │
-        │   ├── ManageFunds
-        │   │   ├── Deposit Tab
-        │   │   │   └── Amount Entry + Confirm
-        │   │   └── Withdrawal Tab
-        │   │       └── ATM Code Generator
-        │   │
-        │   ├── Cards
-        │   │   ├── Card Display (3D Visual)
-        │   │   ├── Debit/Credit Tabs
-        │   │   ├── Settings Panel
-        │   │   ├── PIN Change Modal
-        │   │   ├── Block Card Modal
-        │   │   └── Statements Modal
-        │   │
-        │   ├── Loans
-        │   │   ├── Tracking Tab
-        │   │   │   ├── Active Loans List
-        │   │   │   └── EMI Payment Modal
-        │   │   ├── Application Tab
-        │   │   │   ├── Loan Calculator
-        │   │   │   └── AI Risk Analysis
-        │   │   └── Calculator Tab
-        │   │
-        │   ├── Analytics
-        │   │   ├── Period Selector
-        │   │   ├── Income/Expense Chart
-        │   │   ├── Category Breakdown
-        │   │   ├── Net Worth Summary
-        │   │   ├── Channel-wise Spending
-        │   │   └── Export PDF Button
-        │   │
-        │   ├── Support
-        │   │   ├── Ticket Form
-        │   │   ├── Ticket List
-        │   │   ├── FAQ Section
-        │   │   ├── AI Chat Bot
-        │   │   └── Feedback Modal
-        │   │
-        │   └── Profile
-        │       ├── Personal Info Editor
-        │       ├── Password Change Modal
-        │       └── Notification Settings
-        │
-        └── [ADMIN ROLE]
-            │
-            ├── AdminOverview
-            │   ├── Stats Cards (Users, Deposits, Loans)
-            │   ├── Deposit Trends Chart
-            │   └── System Activity Feed
-            │
-            ├── AdminLoanApprovals
-            │   ├── Pending Applications Table
-            │   ├── ML Analysis Button
-            │   ├── Approval/Reject Actions
-            │   └── Reviewed Applications
-            │
-            └── AdminSystemConfig
-                ├── Maintenance Mode Toggle
-                ├── Currency Settings
-                ├── Interest Rate Config
-                └── Save/Discard Buttons
+├── 📂 components/            # Shared components
+├── 📂 docs/                  # Documentation
+├── App.tsx                   # Main React app
+├── types.ts                  # TypeScript types
+└── package.json              # Dependencies
 ```
 
 ---
 
-## 📄 Views Documentation
+## 🔐 Security Features
 
-### Landing (`Landing.tsx`)
-**Purpose:** Marketing landing page for unauthenticated users
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              LANDING PAGE                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ NAV: Logo | [Login] [Get Started]                                   │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         HERO SECTION                                │   │
-│  │                                                                     │   │
-│  │            "Secure Banking for the Digital Age"                     │   │
-│  │                                                                     │   │
-│  │         [Open Account Now]    [Learn More]                         │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                         │
-│  │  Instant    │  │ AI-Powered  │  │   Safe &    │                         │
-│  │  Transfers  │  │   Loans     │  │  Secure     │                         │
-│  └─────────────┘  └─────────────┘  └─────────────┘                         │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ FOOTER: © 2024 Aura Bank Financial Services                        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Auth (`Auth.tsx`)
-**Purpose:** Login and registration forms with animated background
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             AUTH SCREEN                                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────┬───────────────────────────────────┐   │
-│  │                                 │                                   │   │
-│  │     ANIMATED BACKGROUND         │        FORM CONTAINER             │   │
-│  │                                 │                                   │   │
-│  │   ┌─────────┐                  │   ┌───────────────────────────┐   │   │
-│  │   │  3D     │                  │   │  Email Input              │   │   │
-│  │   │  Card   │                  │   │  Password Input           │   │   │
-│  │   └─────────┘                  │   │  [Name Input - Register]  │   │   │
-│  │                                 │   │                           │   │   │
-│  │   ┌─────┐                      │   │  [Login/Register Button]  │   │   │
-│  │   │Coins│                      │   │                           │   │   │
-│  │   └─────┘                      │   │  Switch: Login ↔ Register │   │   │
-│  │                                 │   └───────────────────────────┘   │   │
-│  │   ┌──────┐                     │                                   │   │
-│  │   │Shield│                     │                                   │   │
-│  │   └──────┘                     │                                   │   │
-│  │                                 │                                   │   │
-│  └─────────────────────────────────┴───────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Dashboard (`Dashboard.tsx`)
-**Purpose:** Main user dashboard with account overview and transactions
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              DASHBOARD                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [FRAUD ALERT BANNER - if active]                                           │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ 🚨 Suspicious Transaction Detected | [Dismiss] [Block Card Now]     │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────┬───────────────────────────────────┐   │
-│  │      ACCOUNT BALANCE            │        EXPENSE CHART              │   │
-│  │                                 │                                   │   │
-│  │     $145,000.00                 │      ┌─────────────────┐          │   │
-│  │     ~~~~~~~~~~~~                │      │    PIE CHART    │          │   │
-│  │                                 │      │   Categories    │          │   │
-│  │  Quick Actions:                 │      └─────────────────┘          │   │
-│  │  [Send] [Request] [Pay Bills]   │                                   │   │
-│  └─────────────────────────────────┴───────────────────────────────────┘   │
-│                                                                             │
-│  ┌───────────────────┐  ┌───────────────────┐  ┌───────────────────┐       │
-│  │  Monthly Income   │  │ Monthly Expenses  │  │  Total Spending   │       │
-│  │    $12,500        │  │     $4,800        │  │     $65,800       │       │
-│  └───────────────────┘  └───────────────────┘  └───────────────────┘       │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                      RECENT TRANSACTIONS                            │   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │  Filter: [ALL] [DEPOSIT] [WITHDRAWAL] [TRANSFER] [LOAN]             │   │
-│  │  Sort: [Date ↓] [Date ↑] [Amount ↓] [Amount ↑]                      │   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │  💰 HDFC Deposit          +$5,000.00    Oct 24, 10:23 AM   ✓        │   │
-│  │  🏧 ATM Withdrawal        -$2,000.00    Oct 23, 6:45 PM    ✓        │   │
-│  │  📦 Amazon India          -$1,299.00    Oct 23, 12:30 PM   ✓        │   │
-│  │  🏠 Personal Loan EMI     -$450.00      Oct 15, 9:00 AM    ✓        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Transfer (`Transfer.tsx`)
-**Purpose:** Multi-step fund transfer with account verification
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           TRANSFER FLOW                                      │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-Step 1: Bank Selection          Step 2: Enter Details
-┌─────────────────────┐         ┌─────────────────────┐
-│                     │         │                     │
-│  Select Bank Type:  │ ───────▶│  Account Number     │
-│                     │         │  ________________   │
-│  ┌───────────────┐  │         │                     │
-│  │  AURA BANK    │  │         │  [Verify Account]   │
-│  └───────────────┘  │         │                     │
-│                     │         │  ✓ Verified:        │
-│  ┌───────────────┐  │         │  "John Cooper"      │
-│  │  OTHER BANK   │  │         │                     │
-│  └───────────────┘  │         │  Amount: $_______   │
-│                     │         │                     │
-│  Quick Beneficiaries│         │  [Continue to PIN]  │
-│  • John Cooper      │         │                     │
-│  • Maria Lopez      │         └─────────────────────┘
-└─────────────────────┘                   │
-                                          ▼
-Step 3: PIN Entry               Step 4: Success
-┌─────────────────────┐         ┌─────────────────────┐
-│                     │         │                     │
-│  Enter 4-digit PIN  │         │   ✓ SUCCESS!        │
-│                     │ ───────▶│                     │
-│  ┌─┐ ┌─┐ ┌─┐ ┌─┐   │         │  Reference ID:      │
-│  │•│ │•│ │•│ │•│   │         │  TXN-1234-ABCD      │
-│  └─┘ └─┘ └─┘ └─┘   │         │                     │
-│                     │         │  Amount: $500.00    │
-│  [Confirm Transfer] │         │  To: John Cooper    │
-│                     │         │                     │
-│                     │         │  [New Transfer]     │
-│                     │         │  [Go to Dashboard]  │
-└─────────────────────┘         └─────────────────────┘
-```
-
-### Cards (`Cards.tsx`)
-**Purpose:** Debit/Credit card management with real-time controls
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             MY CARDS                                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [DEBIT]  [CREDIT]                                                          │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                                                                     │   │
-│  │         ┌──────────────────────────────────────────┐               │   │
-│  │         │  ╭────────────────────────────────────╮  │               │   │
-│  │         │  │  AURA BANK                         │  │  3D Card      │   │
-│  │         │  │                                    │  │  Visualization│   │
-│  │         │  │  💳 CHIP                           │  │               │   │
-│  │         │  │                                    │  │               │   │
-│  │         │  │  •••• •••• •••• 4242               │  │               │   │
-│  │         │  │  ALEX MORGAN           EXP: 12/26  │  │               │   │
-│  │         │  ╰────────────────────────────────────╯  │               │   │
-│  │         └──────────────────────────────────────────┘               │   │
-│  │                                                                     │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         CARD CONTROLS                               │   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │                                                                     │   │
-│  │  Card Status       [🔘 Active]                                      │   │
-│  │                                                                     │   │
-│  │  Freeze Card       [──○──────]                                      │   │
-│  │                                                                     │   │
-│  │  International     [──────○──]  ✓ Enabled                          │   │
-│  │                                                                     │   │
-│  │  Online Payments   [──────○──]  ✓ Enabled                          │   │
-│  │                                                                     │   │
-│  │  Daily Limit       $1,500                                           │   │
-│  │                     ├────●────────┤                                 │   │
-│  │                                                                     │   │
-│  │  [🔐 Change PIN]   [🚫 Block Card]   [📄 View Statements]          │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Loans (`Loans.tsx`)
-**Purpose:** Loan tracking, application, and EMI calculator
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                               LOANS                                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [TRACKING]  [APPLICATION]  [CALCULATOR]                                    │
-│                                                                             │
-│  ═══════════════════════════════════════════════════════════════════════    │
-│                                                                             │
-│  TRACKING VIEW:                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  PERSONAL LOAN  L-8839                              Status: ACTIVE  │   │
-│  │  ───────────────────────────────────────────────────────────────── │   │
-│  │  Original: $12,450    Remaining: $8,200    Rate: 8.5%              │   │
-│  │                                                                     │   │
-│  │  Progress: [████████████░░░░░░░░░░░░░] 34% Paid                    │   │
-│  │                                                                     │   │
-│  │  Next EMI: $450.00  Due: Nov 15, 2023                              │   │
-│  │                                                                     │   │
-│  │  [Pay EMI Now]  [View History]                                     │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ═══════════════════════════════════════════════════════════════════════    │
-│                                                                             │
-│  APPLICATION VIEW:                                                          │
-│  ┌─────────────────────────────────┬───────────────────────────────────┐   │
-│  │  Loan Amount: $25,000          │  🤖 AI RISK ANALYSIS              │   │
-│  │  ├──────────●───────────────┤  │                                   │   │
-│  │                                 │  Approval Probability: 85%       │   │
-│  │  Term: 24 months               │                                   │   │
-│  │  ├──────●───────────────────┤  │  "Excellent approval likelihood. │   │
-│  │                                 │   Your credit profile is strong." │   │
-│  │  Est. EMI: $1,125/month        │                                   │   │
-│  │                                 │  [Submit Application]            │   │
-│  └─────────────────────────────────┴───────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Analytics (`Analytics.tsx`)
-**Purpose:** Comprehensive financial analytics with charts
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             ANALYTICS                                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  Period: [7d] [30d] [90d]     Date Range: [______] to [______] [Export PDF]│
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │              INCOME vs EXPENSE TREND (Area Chart)                   │   │
-│  │                                                                     │   │
-│  │     ▲                                                               │   │
-│  │     │    ╭──╮     Income (Blue)                                     │   │
-│  │ $10k│   ╱    ╲    ╭────╮                                            │   │
-│  │     │  ╱      ╲  ╱      ╲                                           │   │
-│  │  $5k│ ╱  ╭──╮  ╲╱        ╲    Expense (Green)                       │   │
-│  │     │╱  ╱    ╲  ╲          ╲                                        │   │
-│  │     ├──┴──────┴──┴──────────┴─▶                                     │   │
-│  │         May  Jun  Jul  Aug  Sep  Oct                                │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────┬───────────────────────────────────┐   │
-│  │    SPENDING BY CATEGORY         │       NET WORTH SUMMARY           │   │
-│  │                                 │                                   │   │
-│  │     ┌────────────────┐          │    Assets:      $284,500          │   │
-│  │     │   PIE CHART    │          │    Liabilities:  $8,200           │   │
-│  │     │                │          │    ─────────────────────          │   │
-│  │     │  🔵 Shopping   │          │    Net Worth:   $276,300          │   │
-│  │     │  🟢 ATM/Cash   │          │                                   │   │
-│  │     │  🟡 Bills      │          │    Growth: +12.4% ↑               │   │
-│  │     │  🔴 Food       │          │                                   │   │
-│  │     └────────────────┘          │                                   │   │
-│  └─────────────────────────────────┴───────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │           CHANNEL-WISE SPENDING (Stacked Bar Chart)                 │   │
-│  │                                                                     │   │
-│  │  Jan  ▓▓▓▓▓▓▓▓▓▓████░░░░░  UPI: $4,200 | ATM: $2,400 | Net: $1,800 │   │
-│  │  Feb  ▓▓▓▓▓▓▓▓████░░░░░░░  UPI: $3,800 | ATM: $1,900 | Net: $2,200 │   │
-│  │  Mar  ▓▓▓▓▓▓▓▓▓▓▓████░░░░  UPI: $5,100 | ATM: $2,800 | Net: $1,500 │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Support (`Support.tsx`)
-**Purpose:** Customer support with tickets, FAQ, and AI chatbot
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              SUPPORT                                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────┬───────────────────────────────────┐   │
-│  │      CREATE NEW TICKET          │      MY TICKETS                   │   │
-│  │                                 │                                   │   │
-│  │  Subject: _________________     │  ┌──────────────────────────────┐│   │
-│  │                                 │  │ TK-1024 - Double charge      ││   │
-│  │  Category:                      │  │ Status: OPEN   🔴            ││   │
-│  │  [ACCOUNT ▼]                    │  │ Category: FRAUD              ││   │
-│  │                                 │  └──────────────────────────────┘│   │
-│  │  Description:                   │                                   │   │
-│  │  ┌─────────────────────────┐   │  ┌──────────────────────────────┐│   │
-│  │  │                         │   │  │ TK-0998 - Address Update     ││   │
-│  │  │                         │   │  │ Status: IN_PROGRESS 🟡       ││   │
-│  │  └─────────────────────────┘   │  │ Category: ACCOUNT            ││   │
-│  │                                 │  └──────────────────────────────┘│   │
-│  │  [Submit Ticket]                │                                   │   │
-│  └─────────────────────────────────┴───────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                     FREQUENTLY ASKED QUESTIONS                      │   │
-│  ├─────────────────────────────────────────────────────────────────────┤   │
-│  │  ▶ How do I block my card?                                         │   │
-│  │  ▶ How to reset my password?                                       │   │
-│  │  ▶ What are the transfer limits?                                   │   │
-│  │  ▶ How to apply for a loan?                                        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌──────────────────────────────────────────────────────────────────┐ 💬   │
-│  │              AI CHAT BOT (Floating)                              │      │
-│  ├──────────────────────────────────────────────────────────────────┤      │
-│  │  🤖: Hello! I'm Aura, your AI banking assistant.                 │      │
-│  │      How can I help you today?                                   │      │
-│  │                                                                  │      │
-│  │  You: How do I block my card?                                    │      │
-│  │                                                                  │      │
-│  │  🤖: You can block your card by going to My Cards and...        │      │
-│  │                                                                  │      │
-│  │  Quick Actions: [Block card] [Loan status] [Transfer help]      │      │
-│  │  ─────────────────────────────────────────────────               │      │
-│  │  [Type your message...                        ] [Send]          │      │
-│  └──────────────────────────────────────────────────────────────────┘      │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Admin Views
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         ADMIN OVERVIEW                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌────────────────┐ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐│
-│  │ Total Users    │ │ Total Deposits │ │ Active Loans   │ │ Pending Apps   ││
-│  │    1,250       │ │   $2.4M        │ │      48        │ │      5 ⚠️      ││
-│  │   +8.5% ↑      │ │   +12% ↑       │ │   +2% ↑        │ │ Action Needed  ││
-│  └────────────────┘ └────────────────┘ └────────────────┘ └────────────────┘│
-│                                                                             │
-│  ┌─────────────────────────────────┬───────────────────────────────────┐   │
-│  │    DEPOSIT TRENDS (Bar Chart)   │    SYSTEM ACTIVITY               │   │
-│  │                                 │                                   │   │
-│  │  Mon ████████████               │  • Large Deposit - Acct #4567    │   │
-│  │  Tue █████████                  │  • New Loan Application          │   │
-│  │  Wed ██████████████             │  • Security Alert Cleared        │   │
-│  │  Thu ████████                   │  • User Verified KYC             │   │
-│  │  Fri ███████████                │  • System Maintenance Complete   │   │
-│  │  Sat ██████                     │                                   │   │
-│  │  Sun ████                       │                                   │   │
-│  └─────────────────────────────────┴───────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       LOAN APPROVAL DESK                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  Pending Applications: 5     [🤖 Run ML Analysis]                           │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ Applicant    │ Amount     │ Credit Score │ AI Score │ Actions       │   │
-│  ├──────────────┼────────────┼──────────────┼──────────┼───────────────┤   │
-│  │ John Cooper  │ $25,000    │     720      │  85% ✓   │ [✓] [✗] [▼]  │   │
-│  │ Maria Lopez  │ $15,000    │     680      │  72% ⚠️   │ [✓] [✗] [▼]  │   │
-│  │ Amit Kumar   │ $50,000    │     580      │  45% ⚠️   │ [✓] [✗] [▼]  │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       SYSTEM CONFIGURATION                                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  OPERATIONAL STATUS                                                 │   │
-│  │                                                                     │   │
-│  │  Maintenance Mode:  [OFF ○──────]                                   │   │
-│  │  Last Updated: Jan 15, 2024 by ADMIN                               │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  FINANCIAL PARAMETERS                                               │   │
-│  │                                                                     │   │
-│  │  Base Currency:    [USD ▼]                                          │   │
-│  │  Savings Rate:     [4.5 ]%                                          │   │
-│  │  FD Rate:          [6.75]%                                          │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  [Discard Changes]                           [Save Configuration]   │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+| Feature | Implementation |
+|---------|----------------|
+| 🔑 **Authentication** | JWT access + refresh tokens |
+| 🔒 **Password Security** | bcrypt with 12 salt rounds |
+| 🚫 **Rate Limiting** | Request throttling on sensitive endpoints |
+| ✅ **Input Validation** | Zod schemas on all inputs |
+| 💼 **Double-Entry Ledger** | Ensures financial data integrity |
+| 🔄 **Idempotency** | Prevents duplicate transactions |
+| 🛡️ **CORS Protection** | Restricted origin access |
+| 🍪 **Secure Cookies** | HttpOnly cookies for tokens |
 
 ---
 
-## 📊 State Management
+## 📸 Screenshots
 
-The application uses React's built-in state management with `useState` and `useEffect` hooks, lifted to the `App.tsx` component level.
+### Customer Dashboard
+> Modern dashboard with real-time balance, spending charts, and fraud alerts
 
-### UserState Interface
+### Admin Panel
+> Comprehensive admin tools for managing users, loans, and system settings
 
-```typescript
-interface UserState {
-  // Core User Info
-  id?: string;
-  name: string;
-  email: string;
-  phone?: string;
-  role: UserRole;           // USER | ADMIN
-  isKycCompleted: boolean;
-  avatar?: string;
-  accountNumber: string;
-  balance: number;
-  
-  // Related Data
-  accounts: Account[];
-  cards: Card[];
-  transactions: Transaction[];
-  loans: Loan[];
-  tickets: Ticket[];
-  fraudAlerts: FraudAlert[];
-  
-  // Preferences
-  notificationPreferences: NotificationPreferences;
-  settings: UserSettings;
-}
-```
+### 3D Login Experience
+> Immersive Three.js powered authentication page
 
-### View Enum
-
-```typescript
-enum View {
-  LANDING = 'LANDING',
-  LOGIN = 'LOGIN',
-  REGISTER = 'REGISTER',
-  FORGOT_PASSWORD = 'FORGOT_PASSWORD',
-  KYC = 'KYC',
-  DASHBOARD = 'DASHBOARD',
-  TRANSFERS = 'TRANSFERS',
-  MANAGE_FUNDS = 'MANAGE_FUNDS',
-  MY_CARDS = 'MY_CARDS',
-  LOANS = 'LOANS',
-  ANALYTICS = 'ANALYTICS',
-  SUPPORT = 'SUPPORT',
-  PROFILE = 'PROFILE',
-  ADMIN_OVERVIEW = 'ADMIN_OVERVIEW',
-  ADMIN_LOANS = 'ADMIN_LOANS',
-  ADMIN_CONFIG = 'ADMIN_CONFIG'
-}
-```
-
-### State Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           STATE MANAGEMENT                                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                               App.tsx (Root)
-                                    │
-           ┌────────────────────────┼────────────────────────┐
-           │                        │                        │
-           ▼                        ▼                        ▼
-    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-    │    user     │         │ currentView │         │isAuthenticated│
-    │ (UserState) │         │   (View)    │         │   (boolean)  │
-    └─────────────┘         └─────────────┘         └─────────────┘
-           │                        │                        │
-           └────────────────────────┼────────────────────────┘
-                                    │
-                                    ▼
-                          ┌─────────────────┐
-                          │  Props Passed   │
-                          │  to Child Views │
-                          └─────────────────┘
-                                    │
-       ┌──────────────┬─────────────┼─────────────┬──────────────┐
-       ▼              ▼             ▼             ▼              ▼
-   Dashboard      Transfer      Cards         Loans          Support
-   - user         - user        - user        - user         - user
-   - setView      - onTransfer  - onUpdate    - onPayment    - onNewTicket
-```
+### AI Chat Support
+> Intelligent chatbot with live web search capabilities
 
 ---
 
-## 🔗 API Integration
+## 🤝 Contributing
 
-### API Service Structure (`src/services/api.ts`)
+We welcome contributions! Please follow these steps:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           API SERVICE LAYER                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  api.ts
-    │
-    ├── request<T>(endpoint, options) ─────── Generic request wrapper
-    │
-    ├── userApi
-    │   ├── getAll()
-    │   ├── getById(id)
-    │   ├── create(userData)
-    │   ├── update(id, userData)
-    │   ├── login(email, password)
-    │   ├── register(userData)
-    │   ├── validateSession(token)
-    │   ├── completeKyc(id, data)
-    │   └── updateNotifications(id, prefs)
-    │
-    ├── accountApi
-    │   ├── getAll()
-    │   ├── getById(id)
-    │   ├── getByUserId(userId)
-    │   ├── deposit(id, amount, description)
-    │   └── getByAccountNumber(number)
-    │
-    ├── transactionApi
-    │   ├── getAll()
-    │   ├── getById(id)
-    │   ├── getByAccountId(accountId, limit)
-    │   ├── create(data)
-    │   └── transfer(data)
-    │
-    ├── loanApi
-    │   ├── getAll()
-    │   ├── getById(id)
-    │   ├── getByUserId(userId)
-    │   ├── getApplications()
-    │   ├── getUserApplications(userId)
-    │   ├── applyForLoan(data)
-    │   ├── reviewApplication(id, status, reviewer)
-    │   └── payEmi(loanId, accountId, amount)
-    │
-    ├── cardApi
-    │   ├── getAll()
-    │   ├── getById(id)
-    │   ├── getByUserId(userId)
-    │   ├── updateSettings(id, settings)
-    │   ├── updatePin(id, currentPin, newPin)
-    │   └── blockCard(id, reason, password)
-    │
-    ├── supportApi
-    │   ├── getTickets(filters)
-    │   ├── getUserTickets(userId)
-    │   ├── createTicket(data)
-    │   ├── updateTicketStatus(id, status)
-    │   ├── addComment(ticketId, data)
-    │   ├── chat(message, history, userId)
-    │   └── submitFeedback(data)
-    │
-    ├── analyticsApi
-    │   ├── getExpenseCategories(userId)
-    │   ├── getIncomeExpenseTrends(userId, period)
-    │   ├── getDashboardStats(userId)
-    │   ├── getNetWorth(userId)
-    │   ├── getAdminStats()
-    │   ├── getDepositTrends(days)
-    │   ├── getAdminActivity(limit)
-    │   └── exportPdf(userId, startDate, endDate)
-    │
-    ├── configApi
-    │   ├── getAll()
-    │   ├── get(key)
-    │   ├── update(key, value)
-    │   └── batchUpdate(settings)
-    │
-    ├── withdrawalApi
-    │   ├── generateAtmCode(accountId, amount)
-    │   └── validateCode(code, accountNumber)
-    │
-    └── mlApi
-        ├── predictFraud(transactionData)
-        ├── predictLoan(applicantData)
-        └── categorizeExpense(description)
-```
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-## 🎨 Styling & Theming
+## 📄 License
 
-### Technology Stack
-- **TailwindCSS:** Utility-first CSS framework
-- **CSS Variables:** Theme colors and gradients
-- **Dark Mode:** Class-based toggle (`dark:` prefix)
-
-### Color Palette
-
-```
-Primary Colors:
-─────────────────────────────────────
-│ primary         │ #135bec (Blue)   │
-│ primary-hover   │ #0e4bc3          │
-│ success         │ #10b981 (Green)  │
-│ warning         │ #f59e0b (Amber)  │
-│ danger          │ #ef4444 (Red)    │
-─────────────────────────────────────
-
-Surface Colors:
-─────────────────────────────────────
-│ Light Mode                        │
-│   surface-light  │ #ffffff         │
-│   bg-light       │ #f8fafc         │
-─────────────────────────────────────
-│ Dark Mode                         │
-│   surface-dark   │ #1e293b         │
-│   bg-dark        │ #0f172a         │
-─────────────────────────────────────
-```
-
-### Animations
-
-```css
-/* Custom animations defined in styles */
-@keyframes slide-up { from { opacity: 0; transform: translateY(10px); } }
-@keyframes fade-in { from { opacity: 0; } }
-@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-@keyframes card-float { 0%, 100% { transform: rotate(12deg) translateY(0); } 50% { transform: rotate(12deg) translateY(-10px); } }
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🚀 Installation & Setup
+## 👨‍💻 Author
 
-### Prerequisites
-- Node.js >= 18.x
-- npm or yarn
-- Running backend server (port 5000)
-
-### Installation Steps
-
-```bash
-# 1. Clone/Navigate to project root
-cd "bank management system"
-
-# 2. Install frontend dependencies
-npm install
-
-# 3. Install backend dependencies
-cd backend && npm install && cd ..
-
-# 4. Start both servers (recommended)
-npm run start
-# OR
-npm run dev:all
-
-# 5. Or start frontend only
-npm run dev
-```
-
-### Available Scripts
-
-| Script | Command | Description |
-|--------|---------|-------------|
-| `dev` | `vite` | Start frontend dev server |
-| `dev:frontend` | `vite` | Start frontend only |
-| `dev:backend` | `cd backend && npx tsx src/index.ts` | Start backend only |
-| `dev:ml` | `cd model && python ml_api.py` | Start ML service |
-| `dev:all` | `concurrently...` | Start frontend + backend |
-| `start` | `concurrently...` | Same as dev:all |
-| `build` | `vite build` | Production build |
-| `preview` | `vite preview` | Preview production build |
+**Balaji** - [@9046balaji](https://github.com/9046balaji)
 
 ---
 
-## ⚙️ Configuration
+<div align="center">
 
-### Environment Variables
+**⭐ Star this repository if you find it helpful!**
 
-Create a `.env` file in the project root:
+Made with ❤️ for the developer community
 
-```env
-# API Configuration
-VITE_API_URL=http://localhost:5000/api
-
-# Feature Flags (optional)
-VITE_ENABLE_ML=true
-VITE_ENABLE_CHAT=true
-```
-
-### Vite Configuration (`vite.config.ts`)
-
-```typescript
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 3000,
-    proxy: {
-      '/api': 'http://localhost:5000'
-    }
-  }
-})
-```
-
----
-
-## 📦 Dependencies
-
-### Production Dependencies
-| Package | Version | Purpose |
-|---------|---------|---------|
-| react | ^19.2.4 | UI library |
-| react-dom | ^19.2.4 | DOM rendering |
-| recharts | ^3.7.0 | Charts & graphs |
-| @google/genai | ^1.38.0 | AI chat integration |
-
-### Development Dependencies
-| Package | Version | Purpose |
-|---------|---------|---------|
-| vite | ^6.2.0 | Build tool |
-| typescript | ~5.8.2 | Type checking |
-| @vitejs/plugin-react | ^5.0.0 | React plugin |
-| concurrently | ^9.2.1 | Run multiple scripts |
-| @types/node | ^22.14.0 | Node.js types |
-
----
-
-## 🔒 Security Features
-
-### Client-Side Security
-- ✅ Session token storage in localStorage
-- ✅ Automatic session restoration on page refresh
-- ✅ PIN masking for sensitive operations
-- ✅ Card number masking (•••• •••• •••• XXXX)
-- ✅ Role-based view access (USER/ADMIN)
-
-### Recommended Improvements
-- ⬜ Implement token refresh mechanism
-- ⬜ Add CSRF protection
-- ⬜ Implement request rate limiting display
-- ⬜ Add biometric authentication support
-- ⬜ Implement end-to-end encryption
-
----
-
-## 🧪 Testing
-
-Currently, no automated tests are implemented. Recommended testing strategy:
-
-1. **Unit Tests:** Jest + React Testing Library
-2. **Integration Tests:** Cypress
-3. **E2E Tests:** Playwright
-
----
-
-## 📝 License
-
-MIT License
-
----
-
-## 👥 Contributors
-
-- Aura Bank Development Team
-
----
-
-*Last Updated: January 2026*
+</div>
