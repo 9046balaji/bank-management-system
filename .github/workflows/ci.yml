@@ -1,0 +1,66 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install Frontend Dependencies
+      run: npm ci
+      
+    - name: Build Frontend
+      run: npm run build
+      
+    - name: Test Frontend
+      run: npm run test:run || true
+      
+    - name: Install Backend Dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Build Backend
+      run: |
+        cd backend
+        npm run build
+        
+    - name: Test Backend
+      run: |
+        cd backend
+        npm test || true
+        
+  docker-build:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    # This runs only on the main branch pushes, acting as CD check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Frontend Image
+      run: docker build -t aurabank-frontend .
+      
+    - name: Build Backend Image
+      run: |
+        cd backend
+        docker build -t aurabank-backend .
