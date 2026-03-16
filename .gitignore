@@ -90,3 +90,4 @@ __pycache__/
 
 # ML model files (large binaries)
 
+model/ 
