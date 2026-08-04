@@ -133,47 +133,157 @@ export const query = async (text: string, params?: any[]) => {
 // Run database migrations on startup
 export const runMigrations = async () => {
   try {
-    // Add APPROVED and REJECTED to loan_status_enum if they don't exist
-    // PostgreSQL doesn't have IF NOT EXISTS for ADD VALUE in all versions,
-    // so we need to check if they exist first
+    // Ensure extension and base enums exist
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+
+    await pool.query(`
+      DO $$ BEGIN CREATE TYPE user_role_enum AS ENUM ('USER', 'ADMIN'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE kyc_status_enum AS ENUM ('PENDING', 'VERIFIED', 'REJECTED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE account_type_enum AS ENUM ('SAVINGS', 'CURRENT'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE transaction_type_enum AS ENUM ('DEPOSIT', 'WITHDRAWAL', 'TRANSFER', 'LOAN_PAYMENT', 'LOAN_DISBURSAL'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE transaction_status_enum AS ENUM ('COMPLETED', 'PENDING', 'FAILED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE card_status_enum AS ENUM ('ACTIVE', 'BLOCKED', 'FROZEN'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE loan_status_enum AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'ACTIVE', 'REPAID', 'DEFAULTED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE ticket_category_enum AS ENUM ('FRAUD', 'ACCOUNT', 'TECH', 'OTHER'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE ticket_status_enum AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `);
+
+    // Ensure all values exist in loan_status_enum
     const checkEnum = await pool.query(`
       SELECT enumlabel FROM pg_enum 
       WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'loan_status_enum')
     `);
-
     const existingValues = checkEnum.rows.map((r: any) => r.enumlabel);
-
-    if (!existingValues.includes('APPROVED')) {
-      await pool.query(`ALTER TYPE loan_status_enum ADD VALUE 'APPROVED'`);
-      console.log('Added APPROVED to loan_status_enum');
+    const requiredLoanEnumVals = ['PENDING', 'APPROVED', 'REJECTED', 'ACTIVE', 'REPAID', 'DEFAULTED'];
+    for (const val of requiredLoanEnumVals) {
+      if (!existingValues.includes(val)) {
+        await pool.query(`ALTER TYPE loan_status_enum ADD VALUE '${val}'`);
+        console.log(`Added ${val} to loan_status_enum`);
+      }
     }
 
-    if (!existingValues.includes('REJECTED')) {
-      await pool.query(`ALTER TYPE loan_status_enum ADD VALUE 'REJECTED'`);
-      console.log('Added REJECTED to loan_status_enum');
-    }
+    // Ensure base users table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        full_name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        phone_number VARCHAR(20),
+        date_of_birth DATE,
+        address TEXT,
+        kyc_status kyc_status_enum DEFAULT 'PENDING',
+        role user_role_enum DEFAULT 'USER',
+        avatar_url TEXT,
+        notification_preferences JSONB DEFAULT '{"email": {"largeTransaction": true, "lowBalance": true, "security": true}, "sms": {"largeTransaction": true, "lowBalance": false, "security": true}, "push": {"largeTransaction": false, "lowBalance": true, "security": true}}'::jsonb,
+        settings JSONB DEFAULT '{"currency": "USD", "maintenanceMode": false, "savingsRate": 2.5, "fdRate": 4.75, "cardFrozen": false, "onlinePayments": true, "intlUse": true, "dailyLimit": 1500}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure accounts table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS accounts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        account_number VARCHAR(20) UNIQUE NOT NULL,
+        account_type account_type_enum NOT NULL,
+        balance DECIMAL(15, 2) DEFAULT 0.00,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure transactions table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS transactions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        type transaction_type_enum NOT NULL,
+        amount DECIMAL(15, 2) NOT NULL,
+        description TEXT,
+        category VARCHAR(50) DEFAULT 'Others',
+        category_confidence DECIMAL(5, 2) DEFAULT 0,
+        counterparty_name VARCHAR(100),
+        counterparty_account_number VARCHAR(50),
+        status transaction_status_enum DEFAULT 'COMPLETED',
+        reference_id VARCHAR(50),
+        transaction_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure cards table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cards (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        card_number_masked VARCHAR(100) NOT NULL,
+        card_holder_name VARCHAR(100) NOT NULL,
+        expiry_date VARCHAR(5) NOT NULL,
+        cvv_hash VARCHAR(255),
+        pin_hash VARCHAR(255),
+        status card_status_enum DEFAULT 'ACTIVE',
+        daily_limit DECIMAL(15, 2) DEFAULT 1500.00,
+        is_international_enabled BOOLEAN DEFAULT TRUE,
+        is_online_enabled BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure loans table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS loans (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        loan_reference_id VARCHAR(20) UNIQUE,
+        type VARCHAR(50) DEFAULT 'Personal Loan',
+        loan_amount DECIMAL(15, 2) NOT NULL,
+        outstanding_balance DECIMAL(15, 2) NOT NULL,
+        interest_rate DECIMAL(5, 2) NOT NULL,
+        term_months INTEGER NOT NULL,
+        start_date DATE NOT NULL,
+        next_emi_date DATE,
+        emi_amount DECIMAL(15, 2),
+        status loan_status_enum DEFAULT 'ACTIVE',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure loan_applications table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS loan_applications (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        requested_amount DECIMAL(15, 2) NOT NULL,
+        monthly_income DECIMAL(15, 2),
+        credit_score INTEGER,
+        ai_risk_score INTEGER CHECK (ai_risk_score BETWEEN 0 AND 100),
+        status loan_status_enum DEFAULT 'PENDING',
+        applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ensure support_tickets table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        ticket_reference_id VARCHAR(20) UNIQUE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        subject VARCHAR(200) NOT NULL,
+        category ticket_category_enum NOT NULL,
+        description TEXT,
+        status ticket_status_enum DEFAULT 'OPEN',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // Add reviewed_at column to loan_applications if it doesn't exist
-    const checkReviewedAt = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'loan_applications' AND column_name = 'reviewed_at'
-    `);
-
-    if (checkReviewedAt.rowCount === 0) {
-      await pool.query(`ALTER TABLE loan_applications ADD COLUMN reviewed_at TIMESTAMP WITH TIME ZONE`);
-      console.log('Added reviewed_at column to loan_applications');
-    }
+    await pool.query(`ALTER TABLE IF EXISTS loan_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE`);
 
     // Add updated_at column to accounts if it doesn't exist
-    const checkAccountsUpdatedAt = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'accounts' AND column_name = 'updated_at'
-    `);
-
-    if (checkAccountsUpdatedAt.rowCount === 0) {
-      await pool.query(`ALTER TABLE accounts ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP`);
-      console.log('Added updated_at column to accounts');
-    }
+    await pool.query(`ALTER TABLE IF EXISTS accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP`);
 
     // Create ledger_accounts table if it doesn't exist
     await pool.query(`
@@ -248,35 +358,10 @@ export const runMigrations = async () => {
       END $$;
     `);
 
-    // Add card_type column to cards table if it doesn't exist
-    const checkCardType = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'cards' AND column_name = 'card_type'
-    `);
-    if (checkCardType.rowCount === 0) {
-      await pool.query(`ALTER TABLE cards ADD COLUMN card_type VARCHAR(20) DEFAULT 'DEBIT'`);
-      console.log('Added card_type column to cards table');
-    }
-
-    // Add credit_limit column to cards table if it doesn't exist
-    const checkCreditLimit = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'cards' AND column_name = 'credit_limit'
-    `);
-    if (checkCreditLimit.rowCount === 0) {
-      await pool.query(`ALTER TABLE cards ADD COLUMN credit_limit DECIMAL(15, 2) DEFAULT 0`);
-      console.log('Added credit_limit column to cards table');
-    }
-
-    // Add available_credit column to cards table if it doesn't exist
-    const checkAvailableCredit = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'cards' AND column_name = 'available_credit'
-    `);
-    if (checkAvailableCredit.rowCount === 0) {
-      await pool.query(`ALTER TABLE cards ADD COLUMN available_credit DECIMAL(15, 2) DEFAULT 0`);
-      console.log('Added available_credit column to cards table');
-    }
+    // Add card_type, credit_limit, and available_credit columns to cards table if it exists
+    await pool.query(`ALTER TABLE IF EXISTS cards ADD COLUMN IF NOT EXISTS card_type VARCHAR(20) DEFAULT 'DEBIT'`);
+    await pool.query(`ALTER TABLE IF EXISTS cards ADD COLUMN IF NOT EXISTS credit_limit DECIMAL(15, 2) DEFAULT 0`);
+    await pool.query(`ALTER TABLE IF EXISTS cards ADD COLUMN IF NOT EXISTS available_credit DECIMAL(15, 2) DEFAULT 0`);
 
     // Create card_applications table if it doesn't exist
     await pool.query(`
@@ -389,6 +474,18 @@ export const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_type ON feedback(type)`);
     console.log('Feedback table ready');
+
+    // Create user_feedback compatibility table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_feedback (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+        category VARCHAR(50),
+        comment TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // Create feedback_insights table for AI-generated summaries
     await pool.query(`
