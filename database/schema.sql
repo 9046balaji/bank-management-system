@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS cards (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    card_number_masked VARCHAR(20) NOT NULL, -- Store only last 4 or masked version
+    card_number_masked VARCHAR(100) NOT NULL, -- Store only last 4 or masked version
     card_holder_name VARCHAR(100) NOT NULL,
     expiry_date VARCHAR(5) NOT NULL, -- MM/YY
     cvv_hash VARCHAR(255),
