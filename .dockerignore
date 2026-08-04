@@ -1,6 +1,11 @@
 node_modules
 dist
 .git
+.gitignore
+.env
+.env.local
 backend/
 model/
 database/
+*.log
+.pytest_cache
