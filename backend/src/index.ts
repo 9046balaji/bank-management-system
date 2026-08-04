@@ -19,6 +19,8 @@ import chatRoutes from './routes/chat';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware/errorMiddleware';
 import { authMiddleware, adminMiddleware } from './middleware/authMiddleware';
 import { getAllCircuitBreakerStats } from './utils/circuitBreaker';
+import client from 'prom-client';
+import { isRedisReady } from './utils/redis';
 import {
   globalRateLimiter,
   standardRateLimiter,
@@ -27,6 +29,15 @@ import {
 } from './middleware/rateLimiter';
 
 dotenv.config({ path: '.env.local' });
+
+// Initialize Prometheus default metrics collection
+client.collectDefaultMetrics({ prefix: 'aurabank_backend_' });
+const httpRequestDurationMicroseconds = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'code'],
+  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 10]
+});
 
 const app: Express = express();
 const PORT = process.env.SERVER_PORT || 5000;
@@ -103,7 +114,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'OK',
+    redis_connected: isRedisReady(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (req: Request, res: Response) => {
+  res.setHeader('Content-Type', client.register.contentType);
+  res.send(await client.register.metrics());
 });
 
 // Database health check with detailed stats
@@ -229,6 +250,8 @@ const startServer = async () => {
   });
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;
