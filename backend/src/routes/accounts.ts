@@ -1,5 +1,7 @@
 import express, { Router, Request, Response } from 'express';
 import { query } from '../db/connection';
+import pool from '../db/connection';
+import { adminMiddleware } from '../middleware/authMiddleware';
 
 const router: Router = express.Router();
 
@@ -28,7 +30,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// Get account by ID
+// Get account by ID (ownership checked)
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -41,10 +43,12 @@ router.get('/:id', async (req: Request, res: Response) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Account not found',
-      });
+      return res.status(404).json({ success: false, error: 'Account not found' });
+    }
+
+    // Ownership check: users can only view their own accounts
+    if (req.user?.role !== 'ADMIN' && result.rows[0].user_id !== req.userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
     res.json({
@@ -60,10 +64,15 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Get accounts by user ID
+// Get accounts by user ID (ownership checked)
 router.get('/user/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+
+    // Ownership check
+    if (req.user?.role !== 'ADMIN' && req.userId !== userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
     const result = await query(
       'SELECT * FROM accounts WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
@@ -116,8 +125,8 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// Update account balance
-router.patch('/:id/balance', async (req: Request, res: Response) => {
+// Update account balance (admin only — direct balance setting is dangerous)
+router.patch('/:id/balance', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { balance } = req.body;
@@ -178,42 +187,43 @@ router.post('/:id/deposit', async (req: Request, res: Response) => {
     );
 
     if (accountCheck.rowCount === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Account not found',
-      });
+      return res.status(404).json({ success: false, error: 'Account not found' });
     }
 
     const account = accountCheck.rows[0];
 
+    // Ownership check
+    if (req.user?.role !== 'ADMIN' && account.user_id !== req.userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
     if (!account.is_active) {
-      return res.status(400).json({
-        success: false,
-        error: 'Account is inactive',
-      });
+      return res.status(400).json({ success: false, error: 'Account is inactive' });
     }
 
     // Generate reference ID
     const referenceId = `DEP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
-    // Perform atomic deposit using transaction
-    await query('BEGIN');
+    // Perform atomic deposit using dedicated client connection
+    const client = await pool.connect();
 
     try {
+      await client.query('BEGIN');
+
       // Update balance
-      const updatedAccount = await query(
+      const updatedAccount = await client.query(
         'UPDATE accounts SET balance = balance + $1 WHERE id = $2 RETURNING *',
         [amount, id]
       );
 
       // Create transaction record
-      await query(
+      await client.query(
         `INSERT INTO transactions (account_id, type, amount, description, status, reference_id)
          VALUES ($1, 'DEPOSIT', $2, $3, 'COMPLETED', $4)`,
         [id, amount, `${description} (${source})`, referenceId]
       );
 
-      await query('COMMIT');
+      await client.query('COMMIT');
 
       res.json({
         success: true,
@@ -224,8 +234,10 @@ router.post('/:id/deposit', async (req: Request, res: Response) => {
         new_balance: parseFloat(updatedAccount.rows[0].balance),
       });
     } catch (error) {
-      await query('ROLLBACK');
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   } catch (error) {
     console.error('Error processing deposit:', error);
