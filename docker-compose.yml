@@ -1,9 +1,15 @@
-version: '3.8'
+networks:
+  aurabank-network:
+    driver: bridge
 
 services:
+  # ==========================================
+  # DATABASE SERVICES
+  # ==========================================
   db:
     image: postgres:15-alpine
     container_name: aurabank-db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -12,20 +18,61 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Optionally mount init scripts here if you want them to run automatically
-      # on first db creation. The app handles most schema creation, 
-      # but you can add - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/schema_updates.sql:/docker-entrypoint-initdb.d/02-schema_updates.sql:ro
+      - ./database/ledger_schema.sql:/docker-entrypoint-initdb.d/03-ledger_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d aurabank"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - aurabank-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: aurabank-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurabank-network
+
+  # ==========================================
+  # APPLICATION SERVICES
+  # ==========================================
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: aurabank-ai-service
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - FLASK_ENV=production
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5001/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-network
 
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: aurabank-backend
+    restart: unless-stopped
     ports:
       - "5000:5000"
     environment:
@@ -35,11 +82,25 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=password
       - DB_NAME=aurabank
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ML_API_URL=http://ai-service:5001
       - JWT_SECRET=your_super_secret_jwt_key_here
       - PORT=5000
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5000/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); })\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-network
 
   frontend:
     build:
@@ -48,10 +109,122 @@ services:
       args:
         - VITE_API_URL=http://localhost:5000/api
     container_name: aurabank-frontend
+    restart: unless-stopped
     ports:
       - "3000:80"
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-network
+
+  # ==========================================
+  # MONITORING & OBSERVABILITY SERVICES
+  # ==========================================
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: aurabank-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9100/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: aurabank-cadvisor
+    restart: unless-stopped
+    command:
+      - '--docker_only=true'
+      - '--housekeeping_interval=10s'
+      - '--disable_metrics=disk,diskIO'
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+    networks:
+      - aurabank-network
+
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: aurabank-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    depends_on:
+      - node-exporter
+      - backend
+      - ai-service
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-network
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: aurabank-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-network
+
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: aurabank-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-network
 
 volumes:
   postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
