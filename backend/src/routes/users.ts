@@ -340,9 +340,38 @@ router.post('/register', registrationRateLimiter, async (req: Request, res: Resp
 
     const newUser = userResult.rows[0];
 
+    // Generate JWT tokens for newly registered user so session authentication succeeds
+    const { accessToken, refreshToken } = generateTokenPair({
+      userId: newUser.id,
+      email: newUser.email,
+      role: newUser.role,
+    });
+
+    // Store refresh token in database for session management
+    try {
+      await query(
+        `INSERT INTO user_sessions (user_id, session_token, refresh_token, expires_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '7 days')
+         ON CONFLICT (session_token) DO UPDATE SET last_activity = NOW()`,
+        [newUser.id, accessToken, refreshToken]
+      );
+    } catch (sessionError) {
+      console.log('Session storage skipped:', sessionError);
+    }
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     res.status(201).json({
       success: true,
-      data: filterUserData(newUser),
+      data: {
+        user: filterUserData(newUser),
+        token: accessToken,
+      },
       message: 'Registration successful. Please complete KYC verification.',
     });
   } catch (error) {
