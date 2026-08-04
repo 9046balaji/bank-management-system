@@ -4,13 +4,14 @@ import crypto from 'crypto';
 import { hashPassword, comparePassword, validatePasswordStrength } from '../utils/password';
 import { generateTokenPair, verifyAccessToken, verifyRefreshToken, extractTokenFromHeader } from '../utils/jwt';
 import { filterUserData, filterCompleteUserResponse, filterCardsData } from '../utils/dto';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware';
 import { authRateLimiter, registrationRateLimiter } from '../middleware/rateLimiter';
+import { checkAccountLockout, recordLoginAttempt } from '../middleware/accountLockout';
 
 const router: Router = express.Router();
 
-// Get all users
-router.get('/', async (req: Request, res: Response) => {
+// Get all users (admin only)
+router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query('SELECT id, full_name, email, role, kyc_status, created_at FROM users ORDER BY created_at DESC');
     res.json({
@@ -27,8 +28,8 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// Get user by ID
-router.get('/:id', async (req: Request, res: Response) => {
+// Get user by ID (authenticated, ownership checked)
+router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const result = await query('SELECT * FROM users WHERE id = $1', [id]);
@@ -93,10 +94,16 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// Update user
-router.put('/:id', async (req: Request, res: Response) => {
+// Update user (authenticated, ownership checked)
+router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Ownership check: users can only update their own profile (admins can update any)
+    if (req.user?.role !== 'ADMIN' && req.user?.userId !== id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
     const { full_name, phone_number, address, kyc_status, avatar } = req.body;
 
     const result = await query(
@@ -133,8 +140,8 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Delete user
-router.delete('/:id', async (req: Request, res: Response) => {
+// Delete user (admin only)
+router.delete('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -165,7 +172,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // ==========================================
 
 // Login user (rate limited: 5 attempts per 15 minutes)
-router.post('/login', /*authRateLimiter,*/ async (req: Request, res: Response) => {
+router.post('/login', authRateLimiter, checkAccountLockout, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -515,8 +522,8 @@ router.post('/validate-session', async (req: Request, res: Response) => {
   }
 });
 
-// Get user by email (for login check)
-router.get('/email/:email', async (req: Request, res: Response) => {
+// Get user by email (admin only)
+router.get('/email/:email', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { email } = req.params;
     const result = await query(
@@ -544,10 +551,16 @@ router.get('/email/:email', async (req: Request, res: Response) => {
   }
 });
 
-// Complete KYC and create account
-router.post('/:id/complete-kyc', async (req: Request, res: Response) => {
+// Complete KYC and create account (authenticated)
+router.post('/:id/complete-kyc', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Ownership check: users can only complete their own KYC
+    if (req.user?.role !== 'ADMIN' && req.user?.userId !== id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
     const { address, phone_number } = req.body;
 
     // Update user's KYC status
@@ -570,7 +583,7 @@ router.post('/:id/complete-kyc', async (req: Request, res: Response) => {
     }
 
     // Generate account number (10 digits)
-    const accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    const accountNumber = crypto.randomInt(1000000000, 9999999999).toString();
 
     const user = userResult.rows[0];
     delete user.password_hash;
@@ -586,7 +599,7 @@ router.post('/:id/complete-kyc', async (req: Request, res: Response) => {
     const account = accountResult.rows[0];
 
     // Generate card for the account
-    const last4 = Math.floor(1000 + Math.random() * 9000).toString();
+    const last4 = crypto.randomInt(1000, 9999).toString();
     const cardNumberMasked = `•••• •••• •••• ${last4}`;
     const expiryDate = new Date();
     expiryDate.setFullYear(expiryDate.getFullYear() + 4);
@@ -695,10 +708,16 @@ router.patch('/:id/password', authMiddleware, async (req: Request, res: Response
   }
 });
 
-// Update notification preferences
-router.patch('/:id/notifications', async (req: Request, res: Response) => {
+// Update notification preferences (authenticated, ownership checked)
+router.patch('/:id/notifications', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Ownership check
+    if (req.user?.role !== 'ADMIN' && req.user?.userId !== id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
     const { notification_preferences } = req.body;
 
     const result = await query(
