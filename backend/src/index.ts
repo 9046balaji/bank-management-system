@@ -90,7 +90,7 @@ app.use(cookieParser());
 app.use(requestLogger);
 
 // Global rate limiter - safety net for all requests
-// app.use(globalRateLimiter);
+app.use(globalRateLimiter);
 
 // Security headers
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -121,14 +121,14 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Prometheus metrics endpoint
-app.get('/metrics', async (req: Request, res: Response) => {
+// Prometheus metrics endpoint (admin only)
+app.get('/metrics', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   res.setHeader('Content-Type', client.register.contentType);
   res.send(await client.register.metrics());
 });
 
-// Database health check with detailed stats
-app.get('/api/health/db', async (req: Request, res: Response) => {
+// Database health check with detailed stats (admin only)
+app.get('/api/health/db', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   const health = await checkDatabaseHealth();
   const statusCode = health.status === 'healthy' ? 200 :
     health.status === 'degraded' ? 200 : 503;
