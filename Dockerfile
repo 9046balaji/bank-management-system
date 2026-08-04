@@ -11,12 +11,11 @@ COPY index.html ./
 # Install dependencies
 RUN npm install
 
-# Copy source code and other root files
+# Copy source code and application files
 COPY src/ src/
 COPY components/ components/
 COPY views/ views/
-COPY *.ts ./
-COPY *.tsx ./
+COPY App.tsx index.tsx constants.ts types.ts ./
 
 # Build the frontend application
 ARG VITE_API_URL=http://localhost:5000/api
