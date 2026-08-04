@@ -328,8 +328,10 @@ const App: React.FC = () => {
                   password,
                 });
                 if (response.success && response.data) {
-                  const userData = response.data as Record<string, unknown>;
-                  handleLogin({ ...userData, isNewUser: true });
+                  const regData = response.data as { user?: Record<string, unknown>; token?: string } & Record<string, unknown>;
+                  const userObj = regData.user ? regData.user : regData;
+                  const tokenStr = regData.token || (regData.user ? (regData.user as any).token : undefined);
+                  handleLogin({ ...userObj, token: tokenStr, isNewUser: true });
                 } else {
                   throw new Error(response.error || 'Registration failed');
                 }
