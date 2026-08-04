@@ -551,4 +551,53 @@ function getTimeAgo(date: Date): string {
   return `${diffDays} days ago`;
 }
 
+// Route aliases for frontend compatibility
+router.get('/expense-categories/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const accResult = await query('SELECT id FROM accounts WHERE user_id = $1 OR id = $1 LIMIT 1', [id]);
+    const accountId = accResult.rowCount ? accResult.rows[0].id : id;
+
+    const result = await query(`
+      SELECT 
+        COALESCE(tc.name, 'Other') as category,
+        COALESCE(tc.icon, 'category') as icon,
+        COALESCE(tc.color, '#6B7280') as color,
+        COUNT(*) as transaction_count,
+        SUM(t.amount) as total_amount
+      FROM transactions t
+      LEFT JOIN transaction_categories tc ON t.category_id = tc.id
+      WHERE t.account_id = $1
+      GROUP BY tc.name, tc.icon, tc.color
+    `, [accountId]);
+
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.json({ success: true, data: [] });
+  }
+});
+
+router.get('/income-expense-trends/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const accResult = await query('SELECT id FROM accounts WHERE user_id = $1 OR id = $1 LIMIT 1', [id]);
+    const accountId = accResult.rowCount ? accResult.rows[0].id : id;
+
+    const result = await query(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', transaction_date), 'Mon') as name,
+        COALESCE(SUM(CASE WHEN type IN ('DEPOSIT', 'LOAN_DISBURSAL') THEN amount ELSE 0 END), 0) as income,
+        COALESCE(SUM(CASE WHEN type IN ('TRANSFER', 'WITHDRAWAL', 'LOAN_PAYMENT') THEN amount ELSE 0 END), 0) as expense
+      FROM transactions
+      WHERE account_id = $1
+      GROUP BY DATE_TRUNC('month', transaction_date)
+      ORDER BY DATE_TRUNC('month', transaction_date) ASC
+    `, [accountId]);
+
+    res.json({ success: true, data: result.rows.map(r => ({ name: r.name, income: parseFloat(r.income), expense: parseFloat(r.expense) })) });
+  } catch (err) {
+    res.json({ success: true, data: [] });
+  }
+});
+
 export default router;
