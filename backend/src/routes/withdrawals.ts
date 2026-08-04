@@ -95,7 +95,7 @@ router.post('/atm-code', async (req: Request, res: Response) => {
     }
 
     // Generate 6-digit code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = crypto.randomInt(100000, 999999).toString();
     
     // Hash the code for storage
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
