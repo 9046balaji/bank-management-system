@@ -10,6 +10,19 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 
 app = Flask(__name__)
 
+# --- API Key Authentication ---
+AI_SERVICE_API_KEY = os.environ.get('AI_SERVICE_API_KEY', '')
+
+@app.before_request
+def verify_api_key():
+    """Verify API key for all non-health/metrics endpoints."""
+    if request.endpoint in ('health', 'metrics'):
+        return  # Allow health checks and metrics without auth
+    if AI_SERVICE_API_KEY:
+        key = request.headers.get('X-API-Key', '')
+        if key != AI_SERVICE_API_KEY:
+            return jsonify({'error': 'Unauthorized: Invalid or missing API key'}), 401
+
 # --- Prometheus Metrics Instrumentation ---
 REQUEST_COUNT = Counter('ai_service_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status_code'])
 REQUEST_LATENCY = Histogram('ai_service_request_latency_seconds', 'HTTP request latency in seconds', ['endpoint'])
@@ -376,6 +389,9 @@ def train_correction():
     
     if not description or not correct_category:
         return jsonify({'error': 'description and correct_category required'}), 400
+
+    if correct_category not in CATEGORIES:
+        return jsonify({'error': f'Invalid category. Must be one of: {CATEGORIES}'}), 400
         
     user_corrections[description] = correct_category
     save_corrections(user_corrections)
