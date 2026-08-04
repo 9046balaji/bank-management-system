@@ -1,13 +1,14 @@
 import express, { Router, Request, Response } from 'express';
 import { query } from '../db/connection';
 import crypto from 'crypto';
+import { adminMiddleware } from '../middleware/authMiddleware';
 
 const router: Router = express.Router();
 
 // ==========================================
 // GET ALL CARDS
 // ==========================================
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query(
       `SELECT c.*, a.account_number, a.user_id, u.full_name as user_name
@@ -100,6 +101,12 @@ router.get('/account/:accountId', async (req: Request, res: Response) => {
 router.get('/user/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+
+    // Ownership check
+    if (req.user?.role !== 'ADMIN' && req.userId !== userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
     const result = await query(
       `SELECT c.*, a.account_number, a.account_type
        FROM cards c
@@ -154,7 +161,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Generate masked card number (last 4 digits random)
-    const last4 = Math.floor(1000 + Math.random() * 9000).toString();
+    const last4 = crypto.randomInt(1000, 9999).toString();
     const cardNumberMasked = `•••• •••• •••• ${last4}`;
 
     // Generate default PIN hash (in production, user should set their own PIN)
@@ -397,7 +404,7 @@ router.post('/:id/report-lost', async (req: Request, res: Response) => {
 // ==========================================
 
 // Get all card applications (admin)
-router.get('/applications/all', async (req: Request, res: Response) => {
+router.get('/applications/all', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query(
       `SELECT ca.*, u.full_name, u.email, a.account_number
@@ -422,7 +429,7 @@ router.get('/applications/all', async (req: Request, res: Response) => {
 });
 
 // Get pending card applications (admin)
-router.get('/applications/pending', async (req: Request, res: Response) => {
+router.get('/applications/pending', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query(
       `SELECT ca.*, u.full_name, u.email, a.account_number
@@ -521,7 +528,7 @@ router.post('/applications/create', async (req: Request, res: Response) => {
 });
 
 // Review card application (admin - approve/reject)
-router.patch('/applications/:id/review', async (req: Request, res: Response) => {
+router.patch('/applications/:id/review', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status, reviewed_by, daily_limit } = req.body;
@@ -591,7 +598,7 @@ router.patch('/applications/:id/review', async (req: Request, res: Response) => 
       }
 
       // Generate card details
-      const last4 = Math.floor(1000 + Math.random() * 9000).toString();
+      const last4 = crypto.randomInt(1000, 9999).toString();
       const cardNumberMasked = `•••• •••• •••• ${last4}`;
       
       // Expiry date 5 years from now
@@ -629,10 +636,15 @@ router.patch('/applications/:id/review', async (req: Request, res: Response) => 
   }
 });
 
-// Get user's card applications
+// Get user's card applications (ownership checked)
 router.get('/applications/user/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+
+    // Ownership check
+    if (req.user?.role !== 'ADMIN' && req.userId !== userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
     const result = await query(
       `SELECT * FROM card_applications WHERE user_id = $1 ORDER BY applied_at DESC`,
       [userId]
