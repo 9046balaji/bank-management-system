@@ -257,7 +257,6 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
       transfer_type = 'INTERNAL', // INTERNAL, DOMESTIC (IMPS/NEFT), INTERNATIONAL
     } = req.body;
 
-    // Validate required fields
     if (!from_account_id || !to_account_number || !amount) {
       return res.status(400).json({
         success: false,
@@ -269,6 +268,14 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
       return res.status(400).json({
         success: false,
         error: 'Amount must be greater than 0',
+      });
+    }
+
+    // PIN is mandatory for all transfers
+    if (!pin) {
+      return res.status(400).json({
+        success: false,
+        error: 'PIN is required for transfers',
       });
     }
 
@@ -307,6 +314,18 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
 
     const sender = senderResult.rows[0];
 
+    // Verify the authenticated user owns this account
+    const senderOwnership = await query(
+      'SELECT user_id FROM accounts WHERE id = $1',
+      [from_account_id]
+    );
+    if (senderOwnership.rows[0]?.user_id !== req.userId && req.user?.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'You do not own this account',
+      });
+    }
+
     // Check if sender has sufficient balance
     if (parseFloat(sender.balance) < amount) {
       return res.status(400).json({
@@ -317,28 +336,21 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
       });
     }
 
-    // Verify PIN
-    if (pin) {
-      const pinHash = crypto.createHash('sha256').update(pin).digest('hex');
-      
-      if (sender.pin_hash) {
-        // Card has a PIN set - verify against stored hash
-        if (pinHash !== sender.pin_hash) {
-          return res.status(401).json({
-            success: false,
-            error: 'Invalid PIN',
-          });
-        }
-      } else {
-        // No PIN hash stored - accept default PIN '1234' for demo/test accounts
-        const defaultPinHash = crypto.createHash('sha256').update('1234').digest('hex');
-        if (pinHash !== defaultPinHash) {
-          return res.status(401).json({
-            success: false,
-            error: 'Invalid PIN. Default PIN for test accounts is 1234',
-          });
-        }
-      }
+    // Verify PIN (mandatory)
+    const pinHash = crypto.createHash('sha256').update(pin).digest('hex');
+    
+    if (!sender.pin_hash) {
+      return res.status(400).json({
+        success: false,
+        error: 'Card PIN has not been set. Please set your PIN before making transactions.',
+      });
+    }
+
+    if (pinHash !== sender.pin_hash) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid PIN',
+      });
     }
 
     // Check card status if exists
