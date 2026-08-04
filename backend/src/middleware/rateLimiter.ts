@@ -46,7 +46,7 @@ const createHandler = (message: string) => (req: Request, res: Response) => {
  */
 export const authRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -60,7 +60,7 @@ export const authRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const registrationRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5000,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -74,7 +74,7 @@ export const registrationRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const transactionRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -88,7 +88,7 @@ export const transactionRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const standardRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5000,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -102,7 +102,7 @@ export const standardRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const readOnlyRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5000,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -116,7 +116,7 @@ export const readOnlyRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const passwordResetRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5000,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -130,7 +130,7 @@ export const passwordResetRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const atmCodeRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -144,7 +144,7 @@ export const atmCodeRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const mlRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5000,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
@@ -158,7 +158,7 @@ export const mlRateLimiter: RateLimitRequestHandler = rateLimit({
  */
 export const globalRateLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5000,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
