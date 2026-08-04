@@ -1,5 +1,7 @@
 import express, { Router, Request, Response } from 'express';
 import { query } from '../db/connection';
+import pool from '../db/connection';
+import { adminMiddleware } from '../middleware/authMiddleware';
 
 const router: Router = express.Router();
 
@@ -72,8 +74,8 @@ router.post('/calculator', async (req: Request, res: Response) => {
   }
 });
 
-// Get all loans
-router.get('/', async (req: Request, res: Response) => {
+// Get all loans (admin only)
+router.get('/', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query(
       `SELECT l.*, u.full_name, u.email
@@ -96,10 +98,15 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// Get loans by user ID - MUST be before /:id route
+// Get loans by user ID (ownership checked)
 router.get('/user/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+
+    // Ownership check
+    if (req.user?.role !== 'ADMIN' && req.userId !== userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
     const result = await query(
       'SELECT * FROM loans WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
@@ -123,8 +130,8 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
 // APPLICATION ROUTES - MUST come BEFORE /:id routes
 // ==========================================
 
-// Get loan applications
-router.get('/applications/all', async (req: Request, res: Response) => {
+// Get loan applications (admin only)
+router.get('/applications/all', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query(
       `SELECT la.*, u.full_name, u.email
@@ -147,10 +154,15 @@ router.get('/applications/all', async (req: Request, res: Response) => {
   }
 });
 
-// Get loan applications by user ID
+// Get loan applications by user ID (ownership checked)
 router.get('/applications/user/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+
+    // Ownership check
+    if (req.user?.role !== 'ADMIN' && req.userId !== userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
     const result = await query(
       `SELECT * FROM loan_applications 
        WHERE user_id = $1 
@@ -211,8 +223,8 @@ router.post('/applications/create', async (req: Request, res: Response) => {
   }
 });
 
-// Approve/Reject loan application - MUST be before /:id routes
-router.patch('/applications/:id/review', async (req: Request, res: Response) => {
+// Approve/Reject loan application (admin only)
+router.patch('/applications/:id/review', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status, reviewed_by, interest_rate, term_months } = req.body;
@@ -297,8 +309,8 @@ router.patch('/applications/:id/review', async (req: Request, res: Response) => 
   }
 });
 
-// AI Risk Analysis endpoint - MUST be before /:id routes
-router.post('/applications/:id/ai-analysis', async (req: Request, res: Response) => {
+// AI Risk Analysis endpoint (admin only)
+router.post('/applications/:id/ai-analysis', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { credit_score, monthly_income, loan_amount } = req.body;
@@ -398,8 +410,8 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Create new loan
-router.post('/', async (req: Request, res: Response) => {
+// Create new loan (admin only)
+router.post('/', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const {
       user_id,
@@ -456,8 +468,8 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// Update loan status
-router.patch('/:id/status', async (req: Request, res: Response) => {
+// Update loan status (admin only)
+router.patch('/:id/status', adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -536,6 +548,11 @@ router.post('/:id/pay-emi', async (req: Request, res: Response) => {
     }
 
     const account = accountResult.rows[0];
+
+    // Ownership check for source account
+    if (req.user?.role !== 'ADMIN' && account.user_id !== req.userId) {
+      return res.status(403).json({ success: false, error: 'Access denied to source account' });
+    }
     if (parseFloat(account.balance) < parseFloat(amount)) {
       return res.status(400).json({
         success: false,
@@ -545,48 +562,62 @@ router.post('/:id/pay-emi', async (req: Request, res: Response) => {
 
     // Calculate new outstanding balance
     const newOutstanding = Math.max(0, parseFloat(loan.outstanding_balance) - parseFloat(amount));
-    const newStatus = newOutstanding === 0 ? 'CLOSED' : 'ACTIVE';
+    const newStatus = newOutstanding === 0 ? 'REPAID' : 'ACTIVE';
 
     // Calculate next EMI date (30 days from now)
     const nextEmiDate = new Date();
     nextEmiDate.setDate(nextEmiDate.getDate() + 30);
 
-    // Begin transaction - deduct from account
-    await query(
-      'UPDATE accounts SET balance = balance - $2 WHERE id = $1',
-      [account_id, amount]
-    );
+    // Begin atomic transaction using dedicated client
+    const client = await pool.connect();
 
-    // Update loan
-    const updatedLoan = await query(
-      `UPDATE loans SET 
-        outstanding_balance = $2,
-        next_emi_date = $3,
-        status = $4
-       WHERE id = $1 RETURNING *`,
-      [id, newOutstanding, newStatus === 'ACTIVE' ? nextEmiDate : null, newStatus]
-    );
+    try {
+      await client.query('BEGIN');
 
-    // Record transaction
-    await query(
-      `INSERT INTO transactions (account_id, type, amount, description, counterparty_name, status)
-       VALUES ($1, 'LOAN_PAYMENT', $2, $3, 'Aura Bank Loans', 'COMPLETED')`,
-      [account_id, amount, `EMI Payment - Loan ${loan.loan_reference_id || id}`]
-    );
+      // Deduct from account
+      await client.query(
+        'UPDATE accounts SET balance = balance - $2 WHERE id = $1',
+        [account_id, amount]
+      );
 
-    // Record loan payment
-    await query(
-      `INSERT INTO loan_payments (loan_id, amount, paid_at)
-       VALUES ($1, $2, NOW())`,
-      [id, amount]
-    );
+      // Update loan
+      const updatedLoan = await client.query(
+        `UPDATE loans SET 
+          outstanding_balance = $2,
+          next_emi_date = $3,
+          status = $4
+         WHERE id = $1 RETURNING *`,
+        [id, newOutstanding, newStatus === 'ACTIVE' ? nextEmiDate : null, newStatus]
+      );
 
-    res.json({
-      success: true,
-      data: updatedLoan.rows[0],
-      message: newStatus === 'CLOSED' ? 'Loan fully paid off!' : 'EMI payment successful',
-      new_outstanding: newOutstanding,
-    });
+      // Record transaction
+      await client.query(
+        `INSERT INTO transactions (account_id, type, amount, description, counterparty_name, status)
+         VALUES ($1, 'LOAN_PAYMENT', $2, $3, 'Aura Bank Loans', 'COMPLETED')`,
+        [account_id, amount, `EMI Payment - Loan ${loan.loan_reference_id || id}`]
+      );
+
+      // Record loan payment
+      await client.query(
+        `INSERT INTO loan_payments (loan_id, amount, paid_at)
+         VALUES ($1, $2, NOW())`,
+        [id, amount]
+      );
+
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        data: updatedLoan.rows[0],
+        message: newStatus === 'REPAID' ? 'Loan fully paid off!' : 'EMI payment successful',
+        new_outstanding: newOutstanding,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Error processing EMI payment:', error);
     res.status(500).json({
