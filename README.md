@@ -2,20 +2,22 @@
 
 <div align="center">
 
-![Aura Bank Logo](https://img.shields.io/badge/AURA-BANK-135bec?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0wIDE4Yy00LjQxIDAtOC0zLjU5LTgtOHMzLjU5LTggOC04IDggMy41OSA4IDgtMy41OSA4LTggOHptLjMxLTguODZjLTEuNzctLjQ1LTIuMzQtLjk0LTIuMzQtMS42NyAwLS44NC43OS0xLjQzIDIuMS0xLjQzIDEuMzggMCAxLjkuNjYgMS45NCAxLjY0aDEuNzFjLS4wNS0xLjM0LS44Ny0yLjU3LTIuNDktMi45N1Y1SDEwLjl2MS42OWMtMS41MS4zMi0yLjcyIDEuMy0yLjcyIDIuTUg0LjE5IDEuNzkgMS40OSAyLjY4IDMuNjYgMy4yMSAxLjk1LjQ3IDIuMzQgMS4xNSAyLjM0IDEuODcgMCAuNTMtLjM5IDEuMzktMi4xIDEuMzktMS42IDAtMi4yMy0uNzItMi4zMi0xLjY0SDguMDRjLjEgMS43IDEuMzYgMi42NiAyLjg2IDIuOTdWMTloMi4zNHYtMS42N2MxLjUyLS4yOSAyLjcyLTEuMTYgMi43Mi0yLjc0IDAtMi4yLTEuOS0yLjk1LTMuNjUtMy40NXoiLz48L3N2Zz4=)
+![Aura Bank Logo](https://img.shields.io/badge/AURA-BANK-135bec?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0wIDE4Yy00LjQxIDAtOC0zLjU5LTgtOHMzLjU5LTggOC04IDggMy41OSA4IDgtMy41OSA4LTggOHptLjMxLTguODZjLTEuNzctLjQ1LTIuMzQtLjk0LTIuMzQtMS42NyAwLS44NC43OS0xLjQzIDIuMS0xLjQzIDEuMzggMCAxLjkuNjYgMS45NCAxLjY0aDEuNzFjLS4wNS0xLjM0LS44Ny0yLjU3LTIuNDktMi45N1Y1SDEwLjl2MS42OWMtMS41MS4zMi0yLjcyIDEuMy0yLjcyIDIuTUg0LjE5IDEuNzkgMS40OSAyLjY4IDMuNjYgMy4yMSAxLjk1LjQ3IDIuMzQgMS4xNSAyLjM0IDEuODcgMCAuNTMtLjM5IDEuMzktMi4xIDEuMzktMS42 CjAtMi4yMy0uNzItMi4zMi0xLjY0SDguMDRjLjEgMS43IDEuMzYgMi42NiAyLjg2IDIuOTdWMTloMi4zNHYtMS42N2MxLjUyLS4yOSAyLjcyLTEuMTYgMi43Mi0yLjc0IDAtMi4yLTEuOS0yLjk1LTMuNjUtMy40NXoiLz48L3N2Zz4=)
 
-**Production-Grade Containerized Banking Ecosystem with Double-Entry Accounting, Real-Time AI Risk Scoring & Full Observability**
+**Production-Grade Containerized Banking Ecosystem with Double-Entry Accounting, Real-Time AI Risk Scoring, OpenTelemetry Tracing & Full Observability**
 
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Node.js Express](https://img.shields.io/badge/Node.js-Express_4.18-339933?style=flat-square&logo=node.js)](https://nodejs.org/)
-[![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15.18-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
 [![Python Flask ML](https://img.shields.io/badge/Python-Flask_3.11_ML-3776AB?style=flat-square&logo=python)](https://www.python.org/)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Collector_v0.95-000000?style=flat-square&logo=opentelemetry)](https://opentelemetry.io/)
 [![Docker Compose](https://img.shields.io/badge/Docker_Compose-Multi--Container-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-v2.49.1-E6522C?style=flat-square&logo=prometheus)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Grafana-v10.3.1-F46800?style=flat-square&logo=grafana)](https://grafana.com/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-v2.49-E6522C?style=flat-square&logo=prometheus)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-v10.3-F46800?style=flat-square&logo=grafana)](https://grafana.com/)
+[![Jaeger](https://img.shields.io/badge/Jaeger-v1.54-60D0E4?style=flat-square&logo=jaegertracing)](https://www.jaegertracing.io/)
 
-[System Architecture](#-system-architecture) • [Microservices Overview](#-microservices-overview) • [Double-Entry Ledger](#-double-entry-accounting-ledger) • [Observability Stack](#-observability--monitoring-stack) • [Quick Start](#-quick-start--deployment) • [API Matrix](#-api-endpoints-reference)
+[System Architecture](#-system-architecture) • [Application Views Catalog](#-application-views-catalog) • [Double-Entry Ledger](#-double-entry-accounting-ledger) • [Observability Stack](#-observability--monitoring-stack) • [Quick Start](#-quick-start--deployment) • [Microservices Migration Plan](#-microservices-migration-roadmap)
 
 </div>
 
@@ -23,381 +25,164 @@
 
 ## 📖 Executive Summary
 
-**Aura Bank** is an enterprise-grade, microservices-based digital banking and fintech management ecosystem. Designed following modern cloud-native architectures, Aura Bank integrates **strict double-entry financial accounting**, **real-time ML risk scoring & fraud detection**, **Ollama LLM AI chat support**, and **full Prometheus/Grafana observability** in a containerized environment.
-
-### Core Capabilities
-* **Double-Entry General Ledger**: Immutable, atomic financial bookkeeping supporting debit/credit balance reconciliation.
-* **AI-Powered Risk Engine**: Real-time loan risk scoring, credit limit assessment, and expense classification powered by scikit-learn models.
-* **Full-Stack Security**: JWT access/refresh token pair lifecycle, bcrypt password hashing, input validation via Zod, rate limiting, and idempotency protection.
-* **3D Interactive Onboarding**: Immersive Three.js 3D user authentication & KYC verification workflows.
-* **Enterprise Observability**: Native Prometheus metrics endpoints across all microservices, Grafana dashboards, Alertmanager integration, and cAdvisor/Node Exporter system tracking.
+**Aura Bank** is an enterprise-grade digital banking and financial management ecosystem built with modern cloud-native architectures. The platform integrates:
+- **Strict Double-Entry Bookkeeping**: Mathematical zero-sum accounting (`DEBIT + CREDIT = 0`) preventing balance drifts.
+- **AI & Risk Engine**: Scikit-learn models for real-time transaction fraud scoring, loan credit evaluation, and online re-trainable expense categorization.
+- **Cardless ATM Withdrawals**: 6-digit cryptographic token generation (`atm_codes`) for cardless cash pickup.
+- **Credit & Debit Card Management**: Dynamic limit controls, card freeze/unfreeze, PIN resetting, and rewards calculations.
+- **Full SRE & Observability Suite**: OpenTelemetry Collector gateway, Jaeger distributed tracing, Prometheus metrics, Grafana dashboards, Alertmanager, cAdvisor, and Node Exporter.
+- **DevOps + AI Architecture Plan**: Clear 5-phase migration roadmap from monolithic architecture to AWS EKS microservices with GitOps (ArgoCD) and Transactional Outbox pattern.
 
 ---
 
 ## 🏗️ System Architecture
 
-Aura Bank operates as a microservices application decoupled across distinct network domains, orchestrated via Docker Compose.
-
-### 1. High-Level Enterprise Architecture
-
 ```mermaid
 graph TB
-    subgraph ClientLayer["🖥️ Presentation & Edge Layer"]
-        Browser["🌐 Web Browser (User / Admin)"]
-        Nginx["🛡️ Nginx Reverse Proxy (Frontend Container)"]
+    subgraph PresentationLayer["🖥️ Presentation Layer"]
+        WebSPA["React 19 SPA (Port 3000)<br/>18 Rich Application Views"]
+        MobileClient["React Native App Client"]
     end
 
-    subgraph ServiceLayer["⚙️ Application & Microservices Layer"]
-        Backend["🚀 Express Core Backend API (Port 5000)"]
-        AIService["🤖 Flask AI / ML Microservice (Port 5001)"]
-        LLM["💬 Ollama Local LLM / Search Integration"]
+    subgraph IngressLayer["🛡️ Edge & Gateway"]
+        Nginx["Nginx Reverse Proxy / Router"]
     end
 
-    subgraph PersistenceLayer["🗄️ Persistence & Caching Layer"]
-        Postgres[("🐘 PostgreSQL 15 DB (Port 5432)")]
-        Redis[("⚡ Redis 7 Cache & Session Store (Port 6379)")]
+    subgraph ServiceLayer["⚙️ Core Services"]
+        ExpressBackend["Node.js Express Backend (Port 5000)<br/>13 REST API Domains"]
+        AIService["Python Flask AI Service (Port 5001)<br/>Fraud, Loan & Expense ML Engine"]
     end
 
-    subgraph ObservabilityLayer["📊 Monitoring & Observability Stack"]
-        Prometheus["🔥 Prometheus Metrics Server (Port 9090)"]
-        Grafana["📈 Grafana Dashboards (Port 3001)"]
-        AlertManager["🔔 Alertmanager (Port 9093)"]
-        NodeExporter["🖥️ Node Exporter (Port 9100)"]
-        cAdvisor["🐳 cAdvisor Container Metrics (Port 8080)"]
+    subgraph DataLayer["🗄️ Persistence & Caching"]
+        Postgres[("PostgreSQL 15 DB (Port 5432)<br/>users, accounts, transactions, cards,<br/>loans, ledger_entries, atm_codes")]
+        Redis[("Redis 7 Cache (Port 6379)<br/>Sessions & Idempotency Store")]
     end
 
-    Browser -->|HTTP / HTTPS| Nginx
-    Nginx -->|Proxy Requests| Backend
-    Backend -->|JWT Auth & SQL Queries| Postgres
-    Backend -->|Session & Caching| Redis
-    Backend -->|REST API Calls| AIService
-    AIService -->|Local Inference| LLM
-    
-    Prometheus -->|Scrape /metrics| Backend
-    Prometheus -->|Scrape /metrics| AIService
-    Prometheus -->|Scrape /metrics| NodeExporter
-    Prometheus -->|Scrape /metrics| cAdvisor
-    Prometheus -->|Send Alerts| AlertManager
-    Grafana -->|Query Metrics| Prometheus
+    subgraph ObservabilityLayer["📊 Observability & SRE Mesh"]
+        OTelCol[["OpenTelemetry Collector (Ports 4317/4318)<br/>SpanMetrics & Tail Sampling"]]
+        Jaeger["Jaeger Traces UI (Port 16686)"]
+        Prometheus["Prometheus Server (Port 9090)"]
+        Grafana["Grafana Dashboards (Port 3001)"]
+        AlertManager["Alertmanager (Port 9093)"]
+        NodeExporter["Node Exporter (Port 9100)"]
+        cAdvisor["cAdvisor Containers (Port 8080)"]
+    end
+
+    WebSPA --> Nginx
+    MobileClient --> Nginx
+    Nginx --> ExpressBackend
+
+    ExpressBackend -->|SQL Queries| Postgres
+    ExpressBackend -->|RESP Caching| Redis
+    ExpressBackend -->|gRPC / REST| AIService
+
+    ExpressBackend -.->|OTLP Spans| OTelCol
+    AIService -.->|Metrics & Logs| Prometheus
+
+    OTelCol --> Jaeger
+    OTelCol --> Prometheus
+    Prometheus --> AlertManager
+    Grafana --> Prometheus
+    Grafana --> Jaeger
 ```
 
 ---
 
-### 2. Double-Entry Ledger Transaction Flow
+## 📱 Application Views Catalog (`views/`)
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Customer
-    participant Frontend as React Frontend
-    participant Backend as Node.js Express API
-    participant Ledger as Ledger Service
-    participant DB as PostgreSQL Database
-    participant Redis as Redis Cache
+The platform contains 18 comprehensive user & admin views:
 
-    Customer->>Frontend: Initiate Transfer (Sender -> Recipient)
-    Frontend->>Backend: POST /api/transactions/transfer (JWT Token + Idempotency Key)
-    Backend->>Redis: Check Idempotency Key
-    alt Duplicate Request
-        Redis-->>Backend: Key Exists
-        Backend-->>Frontend: Return Cached Response
-    else New Request
-        Backend->>DB: BEGIN Transaction Block
-        Backend->>DB: Check & Deduct Sender Account Balance
-        Backend->>DB: Credit Recipient Account Balance
-        Backend->>Ledger: Record Atomic Double-Entry Ledger Entries
-        Ledger->>DB: INSERT INTO ledger_entries (DEBIT Sender Account)
-        Ledger->>DB: INSERT INTO ledger_entries (CREDIT Recipient Account)
-        Backend->>DB: COMMIT Transaction Block
-        Backend->>Redis: Cache Idempotency Key & Evict Stale Balance
-        Backend-->>Frontend: 200 OK (Transaction Complete & Reference ID)
-        Frontend-->>Customer: Display Transfer Success Receipt
-    end
-```
+| View File | Audience | Key Capabilities & Description |
+| :--- | :--- | :--- |
+| **`Landing.tsx`** | Public | Marketing landing page showcasing features, security certifications, and CTA buttons. |
+| **`Auth.tsx`** | Public | 3D interactive authentication wizard (Register, Login, Password Reset, Role Toggle). |
+| **`KYC.tsx`** | Customer | Customer identity verification, SSN/ID upload, 4-digit PIN setup, initial account allocation. |
+| **`Dashboard.tsx`** | Customer | Main financial command center: account balance cards, recent activity, quick action drawer. |
+| **`ManageFunds.tsx`** | Customer | Cash deposit, withdrawal, cardless ATM code generation, and beneficiary quick transfer. |
+| **`Transfer.tsx`** | Customer | Inter-bank & P2P wire transfers, idempotency key verification, downloadable digital receipts. |
+| **`Cards.tsx`** | Customer | Debit/credit card manager: physical card freeze/unfreeze, limit changes, PIN reset, rewards tracking. |
+| **`Loans.tsx`** | Customer | Active loan tracker, EMI repayment schedule viewer, loan application wizard with AI scoring. |
+| **`Analytics.tsx`** | Customer | Interactive financial charts, spending category breakdown, monthly cashflow projections. |
+| **`Support.tsx`** | Customer | Customer support desk: ticket creation, comment threads, public FAQs, live chat trigger. |
+| **`Profile.tsx`** | Customer | User profile editor, avatar update, security preferences, multi-channel notification toggles. |
+| **`AdminOverview.tsx`** | Admin | Executive banking dashboard: system deposits, active user count, total transaction volume. |
+| **`AdminCardApprovals.tsx`** | Admin | Card issuance review desk: approve/reject credit card applications and limits. |
+| **`AdminLoanApprovals.tsx`** | Admin | Loan approval desk: review AI risk scores (0-100), DTI ratios, credit scores, approve/reject. |
+| **`AdminPaymentTracking.tsx`** | Admin | Real-time transaction surveillance: monitor transfers, search by reference ID, inspect fraud flags. |
+| **`AdminFeedback.tsx`** | Admin | Customer feedback manager: review 1-5 star ratings, respond to inquiries, toggle public testimonials. |
+| **`AdminChat.tsx`** | Admin | Staff live chat console: real-time messaging workspace for supporting customer inquiries. |
+| **`AdminSystemConfig.tsx`** | Admin | System parameters manager: toggle maintenance mode, set daily transfer limits, adjust interest rates. |
 
 ---
 
-### 3. Authentication & KYC Onboarding Workflow
+## 🏦 Double-Entry Accounting Ledger
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant AuthUI as 3D Auth UI
-    participant Backend as Express Auth API
-    participant KYCView as KYC Onboarding
-    participant DB as PostgreSQL DB
-
-    User->>AuthUI: Register Account (Name, Email, Password)
-    AuthUI->>Backend: POST /api/users/register
-    Backend->>DB: Create User (kyc_status = PENDING)
-    Backend->>Backend: Generate JWT Access & Refresh Token Pair
-    Backend-->>AuthUI: 201 Created (User Data + Access Token)
-    AuthUI->>KYCView: Redirect to Document & PIN Verification (kyc_status = PENDING)
-    User->>KYCView: Submit ID Verification & 4-Digit Card PIN
-    KYCView->>Backend: POST /api/users/:id/complete-kyc
-    Backend->>DB: UPDATE users SET kyc_status = VERIFIED
-    Backend->>DB: CREATE Savings Account (10-Digit Account Number)
-    Backend->>DB: CREATE Active Debit/Credit Card (Masked Number + Hash PIN)
-    Backend-->>KYCView: 200 OK (Account & Card Created)
-    KYCView->>User: Grant Access to Verified Customer Dashboard
-```
-
----
-
-### 4. AI Machine Learning & Fraud Inspection Pipeline
-
-```mermaid
-flowchart LR
-    subgraph Inputs["📥 Transaction / Loan Data"]
-        Tx["Transaction Payload"]
-        LoanReq["Loan Application Payload"]
-    end
-
-    subgraph FeatureEngineering["⚙️ Preprocessing Engine"]
-        Vector["TF-IDF Vectorizer (Category Model)"]
-        Scale["StandardScaler (Risk Model)"]
-    end
-
-    subgraph MLModels["🤖 Scikit-Learn Inference Engine"]
-        FraudModel["Fraud Detection Classifier"]
-        LoanModel["Loan Risk Assessment Model"]
-        CategoryModel["Expense Categorizer Model"]
-    end
-
-    subgraph Decision["🎯 Automated Decision Output"]
-        FraudResult{"Fraud Score > Threshold?"}
-        RiskResult["Calculate Risk Score (0 - 100)"]
-    end
-
-    Tx --> Vector --> CategoryModel --> OutputCategory["Categorized Expense"]
-    Tx --> Scale --> FraudModel --> FraudResult
-    FraudResult -->|Yes| Flag["Flag Transaction & Trigger Alert"]
-    FraudResult -->|No| Pass["Approve Transaction"]
-
-    LoanReq --> Scale --> LoanModel --> RiskResult --> DecisionResult["Auto Approval / Manual Review"]
-```
-
----
-
-## 🛠️ Microservices Architecture Overview
-
-| Microservice | Technology Stack | Port | Primary Responsibility |
-| :--- | :--- | :--- | :--- |
-| **`frontend`** | React 19, TypeScript, Vite, Nginx | `3000` | User dashboard, 3D login experience, loan application, admin panel, analytics. |
-| **`backend`** | Node.js, Express, TypeScript, pg | `5000` | REST API Gateway, double-entry ledger execution, user session control, transaction management. |
-| **`ai-service`** | Python 3.11, Flask, scikit-learn | `5001` | ML inference for fraud detection, credit scoring, transaction categorization, Ollama integration. |
-| **`db`** | PostgreSQL 15 Alpine | `5432` | Relational persistence, UUID keys, foreign key cascades, atomic transactions. |
-| **`redis`** | Redis 7 Alpine | `6379` | High-speed in-memory cache, rate-limiting store, session cache. |
-| **`prometheus`** | Prometheus v2.49.1 | `9090` | Metrics collection engine, scraping endpoints every 15 seconds. |
-| **`grafana`** | Grafana 10.3.1 | `3001` | Dashboard visualization for container health, API latency, database metrics. |
-| **`alertmanager`**| Alertmanager v0.26.0 | `9093` | Alert routing and notifications for system anomalies. |
-| **`node-exporter`**| Node Exporter v1.7.0 | `9100` | Host hardware and OS metric collector. |
-| **`cadvisor`** | cAdvisor v0.47.2 | `8080` | Real-time container resource utilization monitoring. |
-
----
-
-## 💼 Double-Entry Accounting Ledger
-
-Aura Bank implements a strict **double-entry bookkeeping system** to ensure compliance with financial accounting standards. Every monetary transaction generates equal and opposite **DEBIT** and **CREDIT** entries.
+Aura Bank enforces strict **double-entry bookkeeping** on every financial transaction:
+$$\sum \text{DEBIT} + \sum \text{CREDIT} = 0$$
 
 ### System Ledger Accounts
-```sql
--- Core System Ledger Accounts
-'00000000-0000-0000-0000-000000000001' -> BANK_CASH     (Main Bank Cash Reserve)
-'00000000-0000-0000-0000-000000000002' -> BANK_REVENUE  (Interest & Fee Income)
-'00000000-0000-0000-0000-000000000003' -> BANK_FEES     (Transaction Fees Collected)
-'00000000-0000-0000-0000-000000000004' -> SUSPENSE      (Temporary Pending Holding)
-'00000000-0000-0000-0000-000000000005' -> BANK_LOANS    (Outstanding Loan Principal)
-```
-
-### Ledger Entry Schema
-```sql
-CREATE TABLE ledger_entries (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    transaction_id UUID NOT NULL,
-    ledger_account_id UUID NOT NULL REFERENCES ledger_accounts(id),
-    entry_type VARCHAR(10) NOT NULL CHECK (entry_type IN ('DEBIT', 'CREDIT')),
-    amount DECIMAL(15, 2) NOT NULL CHECK (amount > 0),
-    signed_amount DECIMAL(15, 2) GENERATED ALWAYS AS (
-      CASE WHEN entry_type = 'DEBIT' THEN amount ELSE -amount END
-    ) STORED,
-    running_balance DECIMAL(15, 2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+- `00000000-0000-0000-0000-000000000001` -> **`BANK_CASH`** (Main Cash Reserve)
+- `00000000-0000-0000-0000-000000000002` -> **`BANK_REVENUE`** (Interest & Fee Income)
+- `00000000-0000-0000-0000-000000000003` -> **`BANK_FEES`** (Transaction Fees Collected)
+- `00000000-0000-0000-0000-000000000004` -> **`SUSPENSE`** (Temporary Pending Holding)
+- `00000000-0000-0000-0000-000000000005` -> **`BANK_LOANS`** (Outstanding Loan Principal)
 
 ---
 
-## 📊 Observability & Monitoring Stack
+## 🤖 AI & Machine Learning Microservice (`ai-service/`)
 
-The ecosystem includes a complete **Prometheus & Grafana observability pipeline** configured out-of-the-box.
-
-```mermaid
-graph LR
-    subgraph Targets["Target Metrics Exporters"]
-        BackendMetrics["Backend: /metrics"]
-        AIMetrics["AI-Service: /metrics"]
-        NodeExporterMetrics["Node Exporter: :9100"]
-        cAdvisorMetrics["cAdvisor: :8080"]
-    end
-
-    subgraph PrometheusEngine["Prometheus Monitoring Engine"]
-        PrometheusServer["Prometheus Server (Port 9090)"]
-        AlertRules["Alert Rules (alerts.yml)"]
-    end
-
-    subgraph Visualization["Dashboards & Alerts"]
-        GrafanaUI["Grafana (Port 3001)"]
-        AlertManagerUI["Alertmanager (Port 9093)"]
-    end
-
-    BackendMetrics --> PrometheusServer
-    AIMetrics --> PrometheusServer
-    NodeExporterMetrics --> PrometheusServer
-    cAdvisorMetrics --> PrometheusServer
-
-    PrometheusServer --> AlertRules
-    AlertRules --> AlertManagerUI
-    GrafanaUI -->|PromQL Queries| PrometheusServer
-```
-
-### Available Dashboards (Grafana)
-- **Container Health & Metrics**: CPU, memory usage, network I/O per container via cAdvisor.
-- **Node Infrastructure**: Disk space, load average, RAM utilization via Node Exporter.
-- **API Performance**: HTTP request rates, response latency breakdown (p50, p95, p99), error rates.
+The Python Flask AI Service (`app.py`) exposes advanced ML & NLP capabilities:
+1. **Real-Time Fraud Detection** (`/predict-fraud`): Calculates fraud probability scores (0-100) and recommendation flags (`APPROVE`, `FLAG`, `REJECT`).
+2. **AI Loan Risk Evaluator** (`/predict-loan-risk`): Evaluates monthly income, credit score, DTI ratio, and computes safe loan eligibility.
+3. **Expense Categorizer** (`/categorize-expense`): Scikit-learn TF-IDF + Logistic Regression model auto-labeling transactions into 9 spending categories with online feedback re-training (`/feedback/category-correction`).
+4. **AI Banking Chat Assistant** (`/chat`): Natural language financial queries and spending analysis.
 
 ---
 
-## ⚡ Quick Start & Deployment
+## 📊 Observability & SRE Stack
 
-### Prerequisites
-* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (with WSL2 backend on Windows or native Linux Docker Engine)
-* Node.js 20+ (for optional local non-containerized development)
-
----
-
-### 1. One-Command Launch (Docker Compose)
-
-```bash
-# Clone repository
-git clone https://github.com/9046balaji/bank-management-system.git
-cd "bank management system"
-
-# Launch entire microservices stack in background
-docker-compose up -d --build
-```
-
-### 2. Verify Container Services Health
-
-```bash
-docker-compose ps
-```
-
-Expected output:
-```text
-NAME                    STATUS                 PORTS
-aurabank-frontend       Up (healthy)           0.0.0.0:3000->80/tcp
-aurabank-backend        Up (healthy)           0.0.0.0:5000->5000/tcp
-aurabank-ai-service     Up (healthy)           0.0.0.0:5001->5001/tcp
-aurabank-db             Up (healthy)           0.0.0.0:5432->5432/tcp
-aurabank-redis          Up (healthy)           0.0.0.0:6379->6379/tcp
-aurabank-prometheus     Up (healthy)           0.0.0.0:9090->9090/tcp
-aurabank-grafana        Up (healthy)           0.0.0.0:3001->3000/tcp
-aurabank-alertmanager   Up (healthy)           0.0.0.0:9093->9093/tcp
-aurabank-node-exporter  Up (healthy)           0.0.0.0:9100->9100/tcp
-aurabank-cadvisor       Up (healthy)           0.0.0.0:8080->8080/tcp
-```
-
----
-
-### 3. Application Access Endpoints
+The project features a comprehensive **OpenTelemetry Collector + Jaeger + Prometheus + Grafana** telemetry mesh:
 
 | Service | Access URL | Credentials / Notes |
 | :--- | :--- | :--- |
-| **Banking Frontend UI** | [http://localhost:3000](http://localhost:3000) | Customer & Admin Web Interface |
-| **Backend REST API** | [http://localhost:5000](http://localhost:5000) | Express API Server |
-| **AI ML Service** | [http://localhost:5001](http://localhost:5001) | Flask AI Risk & Fraud API |
-| **Grafana Dashboards** | [http://localhost:3001](http://localhost:3001) | Username: `admin` / Password: `admin` |
+| **Banking Web SPA** | [http://localhost:3000](http://localhost:3000) | Frontend React Application |
+| **Backend REST API** | [http://localhost:5000](http://localhost:5000) | Express Node.js API |
+| **AI ML Service** | [http://localhost:5001](http://localhost:5001) | Flask AI Microservice |
+| **Jaeger Distributed Tracing** | [http://localhost:16686](http://localhost:16686) | OTel Trace Visualizer |
+| **Grafana Dashboards** | [http://localhost:3001](http://localhost:3001) | User: `admin` / Password: `admin` |
 | **Prometheus Metrics** | [http://localhost:9090](http://localhost:9090) | PromQL Metrics Browser |
+| **OTel Collector Metrics** | [http://localhost:8889](http://localhost:8889) | OTel SpanMetrics Exporter |
 | **Alertmanager** | [http://localhost:9093](http://localhost:9093) | Alert Status Management |
-| **cAdvisor Metrics** | [http://localhost:8080](http://localhost:8080) | Container Metrics Engine |
+| **cAdvisor Metrics** | [http://localhost:8080](http://localhost:8080) | Container Resource Monitor |
 
 ---
 
-## 📡 API Endpoints Reference
+## 🗺️ Microservices Migration Roadmap
 
-### 🔑 Authentication & Users (`/api/users`)
-* `POST /api/users/register` - Create user account & issue JWT token pair.
-* `POST /api/users/login` - Authenticate user & issue JWT token pair.
-* `POST /api/users/:id/complete-kyc` - Verify KYC documents, allocate account number & issue active card.
-* `GET /api/users/profile` - Fetch authenticated user profile.
-* `POST /api/users/logout` - Invalidate session tokens.
-
-### 💳 Accounts & Transactions (`/api/accounts`, `/api/transactions`)
-* `GET /api/accounts/user/:userId` - Fetch accounts for specific user.
-* `POST /api/transactions/transfer` - Perform instant transfer with idempotency & double-entry ledger.
-* `GET /api/transactions/history/:accountId` - Paginated transaction logs.
-
-### 🏦 Loans & Risk Assessment (`/api/loans`)
-* `POST /api/loans/apply` - Submit loan application for automated AI risk scoring.
-* `GET /api/loans/user/:userId` - List active loans & EMI schedules.
-* `POST /api/loans/pay-emi` - Process loan EMI payment.
-
-### 🤖 AI Machine Learning Engine (`http://localhost:5001`)
-* `POST /predict-fraud` - Transaction fraud classification score.
-* `POST /predict-loan-risk` - Credit score & loan risk analysis.
-* `POST /categorize-expense` - Smart expense categorization.
+For the full **DevOps + AI Microservices Engineering Blueprint**, refer to:
+- **[monoloth_to_microservice.md](monoloth_to_microservice.md)**: Master plan detailing AWS EKS deployment, Terraform IaC, ArgoCD GitOps, Transactional Outbox pattern, and 5-phase incremental roadmap.
+- **[devops_ai_resume_showcase_guide.md](devops_ai_resume_showcase_guide.md)**: Resume bullet points, system design interview Q&A scenarios, and portfolio setup.
 
 ---
 
-## 📂 Repository Directory Structure
+## ⚡ Quick Start (Docker Compose)
 
-```text
-bank-management-system/
-├── 📁 .github/              # GitHub Action Workflows
-├── 📁 ai-service/           # Python Flask ML Microservice
-│   ├── app.py               # Flask REST Server & Inference Endpoints
-│   ├── Dockerfile           # Python 3.11 Container Definition
-│   └── requirements.txt     # Python ML Dependencies
-├── 📁 backend/              # Node.js Express Backend Service
-│   ├── src/
-│   │   ├── controllers/     # Request Handlers
-│   │   ├── db/              # Postgres Connection Pool & Auto-Migrations
-│   │   ├── middleware/      # JWT Auth, Rate Limiter, Error Handling
-│   │   ├── routes/          # Express API Endpoints
-│   │   └── services/        # Double-Entry Ledger Service
-│   └── Dockerfile           # Node 20 Alpine Build Container
-├── 📁 components/           # Shared React Component Library
-├── 📁 database/             # Relational Database Schema & Seeding
-│   ├── schema.sql           # Core Database Tables & Indexes
-│   ├── schema_updates.sql   # Auxiliary Tables & Functions
-│   └── ledger_schema.sql    # Double-Entry Ledger Schema
-├── 📁 monitoring/           # Observability Infrastructure Configs
-│   ├── grafana/             # Dashboard Provisioning & Datasources
-│   └── prometheus/          # Prometheus Target Configurations & Alerts
-├── 📁 src/                  # React Frontend Source Code
-├── 📁 views/                # Full Page View Components (Dashboard, Admin, etc.)
-├── App.tsx                  # Primary React Application Component
-├── docker-compose.yml       # Complete Multi-Container Orchestration Manifest
-├── index.html               # Main Web Entrypoint
-├── package.json             # Root Project Dependencies & Scripts
-├── README.md                # Comprehensive Documentation
-└── vite.config.ts           # Vite Build Configuration
+```bash
+# 1. Clone repository
+git clone https://github.com/9046balaji/bank-management-system.git
+cd "bank management system"
+
+# 2. Launch full container stack
+docker-compose up -d --build
+
+# 3. Verify health
+docker-compose ps
 ```
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
 
 Developed with ❤️ by **[@9046balaji](https://github.com/9046balaji)**
-
-**⭐ Star this repository if you find it helpful!**
 
 </div>
