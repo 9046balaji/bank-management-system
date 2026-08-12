@@ -5,10 +5,9 @@
 ![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python)
 ![Flask](https://img.shields.io/badge/Flask-3.0.0-000000?style=flat-square&logo=flask)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3.2-F7931E?style=flat-square&logo=scikit-learn)
-![Ollama](https://img.shields.io/badge/Ollama-Local_LLM-000000?style=flat-square)
-![Gunicorn](https://img.shields.io/badge/Gunicorn-WSGI_Server-499848?style=flat-square)
+![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-E6522C?style=flat-square&logo=prometheus)
 
-**High-Performance AI Service for Real-Time Fraud Detection, Loan Risk Assessment, Expense Categorization, and LLM Banking Chat**
+**Production-Grade AI Microservice for Real-Time Fraud Detection, Credit Risk Evaluation, Re-trainable Expense Categorization, and Financial Assistant API**
 
 </div>
 
@@ -16,140 +15,132 @@
 
 ## 📖 Overview
 
-The **Aura Bank AI Microservice** is a specialized Python Flask application that provides intelligent analytical services to the banking ecosystem. It features custom scikit-learn Machine Learning pipelines for fraud detection, automated credit risk evaluation, transaction expense classification, and integration with local Ollama LLMs and DuckDuckGo search for conversational banking assistance.
+The **Aura Bank AI Microservice** (`ai-service/app.py`) is a high-performance Python Flask service providing real-time Machine Learning and NLP intelligence to the banking ecosystem. It features:
+- **Scikit-learn ML Pipelines**: TF-IDF Vectorizer + Logistic Regression models for transaction categorization.
+- **Online Re-training Loop**: Captures user feedback corrections in `user_corrections.json` and dynamically updates model weights without downtime.
+- **Security Middleware**: Mandates `X-API-Key` header verification for protected endpoints.
+- **Native Prometheus Instrumentation**: Exposes `ai_service_requests_total`, `ai_service_request_latency_seconds`, and `ai_service_predictions_total` metrics.
 
 ---
 
-## 🏗️ Service Architecture
+## 🏗️ Architecture & Data Flow
 
 ```mermaid
 graph TB
-    subgraph Client["⚙️ Core API Gateway"]
-        Backend["Node.js Express Backend"]
+    subgraph Client["🚀 Express Core Backend"]
+        Backend["Node.js API Gateway"]
     end
 
     subgraph AIService["🤖 Flask AI Microservice (Port 5001)"]
-        Routes["Flask REST Endpoints"]
+        AuthMiddleware["🛡️ API Key Auth Middleware (X-API-Key)"]
         
-        subgraph MLModels["Scikit-Learn Models Engine"]
-            FraudEngine["🔍 Fraud Detection Engine"]
-            LoanEngine["📈 Credit Risk Evaluator"]
-            ExpenseEngine["🏷️ Expense Categorizer"]
+        subgraph Endpoints["REST Endpoints"]
+            FraudRoute["POST /predict-fraud"]
+            LoanRoute["POST /predict-loan-risk"]
+            ExpenseRoute["POST /categorize-expense"]
+            CorrectionRoute["POST /feedback/category-correction"]
+            ChatRoute["POST /chat"]
         end
 
-        subgraph ChatLLM["💬 Conversational AI"]
-            OllamaClient["Ollama LLM Client (Gemma3 / Llama)"]
-            SearchClient["DuckDuckGo Search Integration"]
+        subgraph MLModels["Scikit-Learn Inference Engine"]
+            FraudEngine["🔍 Fraud Risk Calculator"]
+            LoanEngine["📈 Loan Credit Evaluator"]
+            ExpenseEngine["🏷️ TF-IDF + Logistic Regression Categorizer"]
+            CorrectionsStore[("user_corrections.json")]
         end
     end
 
-    Backend -->|POST /predict-fraud| Routes
-    Backend -->|POST /predict-loan-risk| Routes
-    Backend -->|POST /categorize-expense| Routes
-    Backend -->|POST /chat| Routes
+    Backend -->|X-API-Key Header| AuthMiddleware
+    AuthMiddleware --> Endpoints
 
-    Routes --> FraudEngine
-    Routes --> LoanEngine
-    Routes --> ExpenseEngine
-    Routes --> ChatLLM
-
-    ChatLLM --> OllamaClient
-    ChatLLM --> SearchClient
+    ExpenseRoute --> ExpenseEngine
+    CorrectionRoute --> CorrectionsStore --> ExpenseEngine
 ```
 
 ---
 
-## ✨ Features & ML Models
+## 📡 REST API Reference
 
-| Feature | Model / Algorithm | Description |
-| :--- | :--- | :--- |
-| 🔍 **Fraud Detection** | Decision Tree / Random Forest Classifier | Evaluates transaction velocity, geographical anomalies, and transfer amount variance to return a fraud score (0 - 100%). |
-| 📈 **Loan Risk Assessment** | Gradient Boosting / Logistic Regression | Analyzes Debt-to-Income (DTI) ratios, credit scores, employment status, and monthly income to compute risk percentage and loan decision recommendation. |
-| 🏷️ **Expense Categorization** | TF-IDF + Multinomial Naive Bayes | Categorizes transaction descriptions (e.g., "Starbucks", "Uber", "Amazon") into standard spending categories. |
-| 💬 **AI Banking Assistant** | Ollama LLM + Live Search RAG | Answers customer banking questions, explains financial terms, and performs live web search for financial news. |
-
----
-
-## 📡 REST API Endpoints Reference
-
-### 1. Fraud Detection Endpoint
-* **`POST /predict-fraud`**
+### 1. Expense Categorization (`POST /categorize-expense`)
+Auto-labels transaction text into 9 categories (*Food & Dining, Transportation, Shopping, Bills & Utilities, Entertainment, Healthcare, Education, Travel, Others*).
+- **Request**:
   ```json
-  // Request Payload
-  {
-    "amount": 2500.00,
-    "user_id": "9bafafeb-c117-4d0d-a8a8-0d897b841942",
-    "location": "New York, USA",
-    "device": "Mobile iOS"
-  }
-  ```
-  ```json
-  // Response Payload (200 OK)
-  {
-    "success": true,
-    "is_fraud": false,
-    "risk_score": 12.5,
-    "recommendation": "APPROVE"
-  }
-  ```
-
-### 2. Loan Risk Assessment Endpoint
-* **`POST /predict-loan-risk`**
-  ```json
-  // Request Payload
-  {
-    "requested_amount": 15000,
-    "monthly_income": 6500,
-    "credit_score": 720,
-    "employment_status": "FULL_TIME"
-  }
-  ```
-  ```json
-  // Response Payload (200 OK)
-  {
-    "success": true,
-    "risk_score": 18,
-    "recommendation": "APPROVED",
-    "max_eligible_amount": 25000
-  }
-  ```
-
-### 3. Expense Categorization Endpoint
-* **`POST /categorize-expense`**
-  ```json
-  // Request Payload
   {
     "description": "Starbucks Coffee #402"
   }
   ```
+- **Response**:
   ```json
-  // Response Payload (200 OK)
   {
-    "success": true,
     "category": "Food & Dining",
-    "confidence": 0.94
+    "confidence": 0.95,
+    "icon": "restaurant",
+    "color": "#ef4444"
   }
   ```
 
-### 4. Conversational AI Chat Endpoint
-* **`POST /chat`**
+### 2. User Feedback Correction (`POST /feedback/category-correction`)
+Allows users to correct misclassified expenses and triggers online re-training.
+- **Request**:
   ```json
-  // Request Payload
   {
-    "message": "What is the current savings account interest rate?",
-    "history": []
+    "description": "Starbucks Coffee #402",
+    "corrected_category": "Food & Dining"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "message": "Correction saved and model updated",
+    "total_corrections": 12
   }
   ```
 
-### 5. Health & Prometheus Metrics
-* **`GET /health`**: Returns `{"status": "healthy"}`
-* **`GET /metrics`**: Exposes Prometheus metrics (`http_requests_total`, `inference_latency_seconds`).
+### 3. Transaction Fraud Detection (`POST /predict-fraud`)
+- **Request**:
+  ```json
+  {
+    "amount": 4900.00,
+    "user_id": "uuid-here",
+    "location": "New York, USA"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "fraud_score": 15.2,
+    "risk_level": "LOW",
+    "recommendation": "APPROVE"
+  }
+  ```
+
+### 4. Loan Credit Risk Assessment (`POST /predict-loan-risk`)
+- **Request**:
+  ```json
+  {
+    "requested_amount": 25000,
+    "monthly_income": 8500,
+    "credit_score": 740
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "ai_risk_score": 18,
+    "recommendation": "APPROVED",
+    "max_safe_limit": 35000
+  }
+  ```
+
+### 5. Health & Metrics
+- **`GET /health`**: Returns service status, loaded model flags, and correction count.
+- **`GET /metrics`**: Prometheus metrics endpoint (`ai_service_requests_total`, `ai_service_request_latency_seconds`).
 
 ---
 
-## 🚀 Local Setup & Testing
+## 🚀 Running & Testing Locally
 
-### Running Locally with Python
 ```bash
 cd ai-service
 
@@ -160,25 +151,14 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Start Flask development server (port 5001)
+# Set optional API Key env variable
+export AI_SERVICE_API_KEY="your_secret_key"
+
+# Run Flask server on port 5001
 python app.py
 ```
 
-### Running Pytest Suite
+### Pytest Execution
 ```bash
 pytest tests/
-```
-
----
-
-## 🐳 Docker Deployment
-
-The microservice is containerized using `python:3.11-slim` and served via Gunicorn WSGI server.
-
-```bash
-# Build image
-docker build -t aurabank-ai-service ./ai-service
-
-# Run container
-docker run -d -p 5001:5001 --name aurabank-ai-service aurabank-ai-service
 ```
