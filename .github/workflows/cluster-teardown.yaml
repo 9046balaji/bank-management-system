@@ -1,0 +1,20 @@
+name: Scheduled Cluster Teardown (Cost Guardrail)
+
+on:
+  schedule:
+    - cron: '0 20 * * 1-5'   # 8 PM weekdays
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'scale-up or scale-down'
+        required: true
+        default: 'scale-down'
+
+jobs:
+  manage-cluster:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log cost guardrail trigger
+        run: |
+          echo "Scheduled cost guardrail triggered. Action: ${{ github.event.inputs.action || 'scheduled scale-down' }}"
