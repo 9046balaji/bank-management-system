@@ -1,0 +1,409 @@
+# docker-compose.local.yaml
+# ============================================================
+# AuraBank — Local Development Stack (Phase 0 Foundation)
+# ============================================================
+# Mirrors the target AWS EKS stack at zero cost:
+#   - pgvector/pgvector:pg15  (mirrors RDS PostgreSQL 15)
+#   - Kafka KRaft             (mirrors Strimzi on EKS)
+#   - LocalStack              (mirrors S3, ECR, Secrets Manager)
+#   - MLflow                  (mirrors MLflow on EKS)
+#   - OTel Collector          (single instance; mirrors agent+gateway)
+#   - Jaeger, Prometheus, Grafana, Loki
+#
+# Usage:
+#   docker compose -f docker-compose.local.yaml up -d
+#   docker compose -f docker-compose.local.yaml down -v   # clean wipe
+# ============================================================
+
+networks:
+  aurabank-local:
+    driver: bridge
+
+volumes:
+  postgres_local_data:
+  redis_local_data:
+  prometheus_local_data:
+  grafana_local_data:
+  mlflow_local_data:
+  loki_local_data:
+
+services:
+
+  # ============================================================
+  # DATABASE — pgvector/pgvector:pg15
+  # Mirrors: AWS RDS PostgreSQL 15 (Multi-AZ in prod)
+  # Contains ALL logical databases for all microservices.
+  # Init SQL creates each logical DB and enables pgvector.
+  # ============================================================
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: aurabank-postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aurabank
+      POSTGRES_PASSWORD: local_dev_password
+      POSTGRES_DB: aurabank          # monolith DB (kept for backward compat)
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+      # Phase 0: keep existing monolith schema for backward compat
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/schema_updates.sql:/docker-entrypoint-initdb.d/02-schema_updates.sql:ro
+      - ./database/ledger_schema.sql:/docker-entrypoint-initdb.d/03-ledger_schema.sql:ro
+      # Phase 1+: creates all microservice logical databases
+      - ./scripts/init-dbs.sql:/docker-entrypoint-initdb.d/10-init-dbs.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aurabank -d aurabank"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # CACHE — Redis 7
+  # Mirrors: AWS ElastiCache Redis
+  # Used for: idempotency fast path, sessions, rate limiting
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: aurabank-redis-local
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass local_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_local_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "local_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # EVENT BROKER — Kafka (KRaft mode, no ZooKeeper)
+  # Mirrors: Strimzi Kafka Operator on EKS
+  # Topics: payment.completed, payment.failed, loan.disbursed,
+  #         loan.repayment.received, card.issued, card.frozen,
+  #         notifications.email, *.dlq
+  # ============================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: aurabank-kafka-local
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      # Auto-create topics on first produce
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168      # 7 days
+    ports:
+      - "29092:29092"    # host access (for local tools like kafkacat, kafka-ui)
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - aurabank-local
+
+  # Kafka UI — visualize topics/messages locally (not in prod)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: aurabank-kafka-ui
+    restart: unless-stopped
+    ports:
+      - "9080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: aurabank-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # AWS SERVICES MOCK — LocalStack
+  # Mirrors: AWS S3, ECR, Secrets Manager
+  # Used for: MLflow artifact storage, secret management testing
+  # ============================================================
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: aurabank-localstack
+    restart: unless-stopped
+    environment:
+      SERVICES: s3,ecr,secretsmanager
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      # Pre-create buckets on startup
+      LOCALSTACK_HOST: localstack
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q '\"s3\": \"available\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # ML MODEL REGISTRY — MLflow
+  # Mirrors: MLflow on EKS with S3 artifact backend
+  # Tracks: XGBoost fraud model experiments and versions
+  # ============================================================
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.11.0
+    container_name: aurabank-mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5002
+      --backend-store-uri postgresql://aurabank:local_dev_password@postgres:5432/mlflow_db
+      --default-artifact-root s3://aurabank-mlflow-artifacts-local/
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "5002:5002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5002/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # EXISTING MONOLITH SERVICES (preserved for Phase 0 baseline)
+  # These will be replaced one by one in Phase 2+
+  # ============================================================
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: aurabank-ai-service
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - FLASK_ENV=development
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5001/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-local
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aurabank-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=aurabank
+      - DB_PASSWORD=local_dev_password
+      - DB_NAME=aurabank
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=local_redis_password
+      - ML_API_URL=http://ai-service:5001
+      - JWT_SECRET=local_dev_jwt_secret_change_in_prod
+      - PORT=5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5000/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); })\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-local
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:5000/api
+    container_name: aurabank-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # OBSERVABILITY — OTel Collector (local: single instance)
+  # Mirrors: OTel Agent DaemonSet + Gateway Deployment on EKS
+  # In prod these are split into agent (DaemonSet) + gateway (Deployment)
+  # ============================================================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.95.0
+    container_name: aurabank-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./monitoring/otel-collector/local-config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+      - "8889:8889"    # Prometheus metrics exporter
+    depends_on:
+      - jaeger
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # TRACING — Jaeger
+  # ============================================================
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: aurabank-jaeger-local
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "14250:14250"   # gRPC (for OTel Collector)
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # METRICS — Prometheus + Alertmanager
+  # ============================================================
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: aurabank-prometheus-local
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.local.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./monitoring/prometheus/slo-rules.yaml:/etc/prometheus/slo-rules.yaml:ro
+      - prometheus_local_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-local
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: aurabank-alertmanager-local
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # LOGS — Grafana Loki (local)
+  # ============================================================
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: aurabank-loki-local
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_local_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # DASHBOARDS — Grafana
+  # ============================================================
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: aurabank-grafana-local
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_FEATURE_TOGGLES_ENABLE=tempoSearch tempoBackendSearch tempoServiceGraph
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_local_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # SYSTEM METRICS — Node Exporter + cAdvisor
+  # ============================================================
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: aurabank-node-exporter-local
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    networks:
+      - aurabank-local
