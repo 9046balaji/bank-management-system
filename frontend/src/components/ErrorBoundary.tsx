@@ -111,13 +111,13 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onRetry }) 
           We encountered an unexpected error. Please try again or contact support if the problem persists.
         </p>
 
-        {/* Error Details (Development Only) */}
-        {process.env.NODE_ENV === 'development' && error && (
-          <details className="mb-6 text-left">
-            <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
+        {/* Error Details */}
+        {error && (
+          <details className="mb-6 text-left" open>
+            <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 font-semibold mb-1">
               Error details
             </summary>
-            <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs overflow-auto max-h-40 text-red-600 dark:text-red-400">
+            <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs overflow-auto max-h-40 text-red-600 dark:text-red-400 font-mono">
               {error.message}
               {'\n\n'}
               {error.stack}
