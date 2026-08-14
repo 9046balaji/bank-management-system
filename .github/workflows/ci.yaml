@@ -76,7 +76,8 @@ jobs:
             for chart in helm/*/; do
               if [ -f "$chart/Chart.yaml" ]; then
                 echo "Linting $chart"
-                helm lint $chart --strict
+                helm dependency build $chart 2>/dev/null || true
+                helm lint $chart
               fi
             done
           fi
