@@ -1,0 +1,131 @@
+# monitoring/otel-collector/local-config.yaml
+# =============================================================
+# OTel Collector — Local Dev Config (Phase 0)
+# =============================================================
+# In prod (EKS): split into:
+#   - otel-agent-config.yaml   (DaemonSet, lightweight forwarding)
+#   - otel-gateway-config.yaml (Deployment+HPA, tail sampling, spanmetrics)
+#
+# Locally: single combined instance for simplicity.
+# =============================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Scrape Prometheus metrics from existing monolith services
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'aurabank-backend'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['backend:5000']
+        - job_name: 'flask-ai-service'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['ai-service:5001']
+
+# SpanMetrics Connector: generates Prometheus metrics from trace spans
+connectors:
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 200ms, 500ms, 1s]
+    dimensions:
+      - name: http.method
+      - name: http.status_code
+      - name: service.name
+      - name: service.criticality
+    metrics_expiration: 5m
+
+processors:
+  batch:
+    send_batch_size: 1024
+    timeout: 1s
+    send_batch_max_size: 2048
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  # Resource enrichment — adds cluster name to all telemetry
+  resource:
+    attributes:
+      - key: k8s.cluster.name
+        value: "aurabank-local"
+        action: upsert
+      - key: deployment.environment
+        value: "local"
+        action: upsert
+
+  # Tail sampling: keep 100% financial + errors, 5% background
+  # (local: higher sample rate than prod for easier debugging)
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    expected_new_traces_per_sec: 500
+    policies:
+      - name: always-sample-financial-critical
+        type: string_attribute
+        string_attribute:
+          key: service.criticality
+          values: ["financial", "critical"]
+      - name: always-sample-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: always-sample-slow
+        type: latency
+        latency:
+          threshold_ms: 1000
+      - name: probabilistic-background
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 5   # 5% locally (1% in prod gateway)
+
+exporters:
+  # Traces → Jaeger
+  otlp/jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+
+  # Metrics → Prometheus scrape endpoint
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "aurabank"
+
+  # Logs → Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    labels:
+      resource:
+        service.name: "service_name"
+        deployment.environment: "environment"
+
+  # Debug output (local only, remove in prod)
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, tail_sampling, batch]
+      exporters: [otlp/jaeger, spanmetrics, debug]
+
+    metrics:
+      receivers: [otlp, prometheus, spanmetrics]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [loki]
