@@ -149,6 +149,7 @@ const KYC: React.FC<KYCProps> = ({ userId, onComplete }) => {
         const response = await userApi.completeKyc(userId, {
           address: formData.address,
           phone_number: formData.phone,
+          pin: formData.pin.join(''),
         });
 
         if (response.success && response.data) {
