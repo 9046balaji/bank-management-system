@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payment-service-netpol
+  namespace: banking
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ingress-controller
+      ports:
+        - port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: ledger-service
+      ports:
+        - port: 9090    # gRPC
+    - to:
+        - podSelector:
+            matchLabels:
+              app: fraud-service
+      ports:
+        - port: 9091    # gRPC
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: database
+      ports:
+        - port: 5432    # PostgreSQL
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: cache
+      ports:
+        - port: 6379    # Redis
+    - ports:
+        - port: 53      # DNS
+          protocol: UDP
