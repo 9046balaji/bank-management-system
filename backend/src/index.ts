@@ -228,10 +228,10 @@ app.use('/api/ml', authMiddleware, mlRateLimiter, mlRoutes);
 // ==========================================
 // ADMIN API Routes
 // ==========================================
-app.use('/api/config', authMiddleware, adminMiddleware, configRoutes);
+app.use('/api/config', configRoutes);
 app.use('/api/ledger', authMiddleware, adminMiddleware, ledgerRoutes); // Ledger audit - admin only
 app.use('/api/admin/ai', authMiddleware, adminMiddleware, adminAiRoutes); // Admin AI & Feedback - admin only
-app.use('/api/chat', authMiddleware, adminMiddleware, chatRoutes); // Live web search chat - admin only
+app.use('/api/chat', authMiddleware, chatRoutes); // AI Support assistant - authenticated users
 
 // 404 handler
 app.use(notFoundHandler);
