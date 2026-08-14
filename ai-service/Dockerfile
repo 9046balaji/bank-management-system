@@ -1,4 +1,25 @@
-FROM python:3.11-slim
+# ============================================================
+# AI Service Dockerfile — Multi-Stage Build (FIX #22)
+# Stage 1: Install deps → Stage 2: Lean production image
+# Separates build-time system packages from runtime image
+# ============================================================
+
+# ── Stage 1: Dependency Builder ──────────────────────────────
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies (not needed at runtime)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install requirements into a target directory
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ── Stage 2: Production Runtime ───────────────────────────────
+FROM python:3.11-slim AS production
 
 WORKDIR /app
 
@@ -7,9 +28,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=5001
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy installed packages from builder (no build tools in final image)
+COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY . .
