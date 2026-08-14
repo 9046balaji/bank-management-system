@@ -1,0 +1,60 @@
+syntax = "proto3";
+package fraud.v1;
+option go_package = "github.com/yourusername/aurabank/gen/go/fraud/v1;fraudv1";
+option py_generic_services = true;
+
+import "google/protobuf/timestamp.proto";
+
+service FraudService {
+    // Evaluate transaction risk in real-time (target p95 < 10ms)
+    rpc EvaluateRisk(EvaluateRiskRequest) returns (EvaluateRiskResponse);
+
+    // Log model feedback for drift monitoring
+    rpc LogPredictionFeedback(LogPredictionFeedbackRequest)
+        returns (LogPredictionFeedbackResponse);
+}
+
+message EvaluateRiskRequest {
+    string  transaction_id = 1;
+    string  user_id        = 2;
+    double  amount         = 3;
+    string  currency       = 4;
+    string  from_account   = 5;
+    string  to_account     = 6;
+    string  ip_address     = 7;
+    string  user_agent     = 8;
+    string  location       = 9;
+    google.protobuf.Timestamp request_time = 10;
+}
+
+message EvaluateRiskResponse {
+    double      fraud_score   = 1;   // 0.0 – 100.0
+    RiskLevel   risk_level    = 2;
+    Decision    decision      = 3;
+    string      model_version = 4;  // MLflow run ID
+    bool        used_fallback = 5;  // True if rule-based fallback was used
+}
+
+enum RiskLevel {
+    RISK_LEVEL_UNSPECIFIED = 0;
+    RISK_LEVEL_LOW         = 1;   // 0–30
+    RISK_LEVEL_MEDIUM      = 2;   // 31–69
+    RISK_LEVEL_HIGH        = 3;   // 70–100
+}
+
+enum Decision {
+    DECISION_UNSPECIFIED = 0;
+    DECISION_APPROVE     = 1;
+    DECISION_FLAG        = 2;
+    DECISION_REJECT      = 3;
+}
+
+message LogPredictionFeedbackRequest {
+    string transaction_id     = 1;
+    bool   was_actually_fraud = 2;
+    string reviewer_id        = 3;
+}
+
+message LogPredictionFeedbackResponse {
+    bool accepted = 1;
+}
