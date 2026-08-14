@@ -1,0 +1,27 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "id": null,
+  "panels": [
+    {
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Kafka Consumer Group Lag by Topic",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "expr": "sum(kafka_consumer_group_lag) by (topic, group)",
+          "legendFormat": "{{topic}} ({{group}})"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["kafka", "events", "aurabank"],
+  "time": { "from": "now-30m", "to": "now" },
+  "title": "AuraBank — Event Backbone & Kafka Consumer Lag",
+  "uid": "kafka-lag"
+}
