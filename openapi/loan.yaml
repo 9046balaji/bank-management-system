@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: AuraBank Loan & Credit Service API
+  version: 1.0.0
+  description: Loan application wizard, EMI calculations, AI risk evaluation, and repayments
+  contact:
+    name: AuraBank Credit Operations
+    email: credit@aurabank.internal
+servers:
+  - url: http://localhost:5000/api
+    description: Local Dev Server
+paths:
+  /loans:
+    get:
+      summary: List user loans
+      operationId: listLoans
+      description: Returns active loans and EMI schedules
+      responses:
+        '200':
+          description: List of active loans
+components:
+  schemas:
+    Loan:
+      type: object
+      properties:
+        id:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
