@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: AuraBank Customer Support Service API
+  version: 1.0.0
+  description: Support ticketing, 1-5 star feedback moderation, public FAQs, and staff chat
+  contact:
+    name: AuraBank Customer Experience
+    email: support@aurabank.internal
+servers:
+  - url: http://localhost:5000/api
+    description: Local Dev Server
+paths:
+  /support/tickets:
+    get:
+      summary: List customer support tickets
+      operationId: listTickets
+      description: Returns tickets created by user
+      responses:
+        '200':
+          description: List of tickets
+components:
+  schemas:
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+        subject:
+          type: string
+        status:
+          type: string
