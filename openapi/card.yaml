@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: AuraBank Card Management Service API
+  version: 1.0.0
+  description: Card issuing, freeze/unfreeze, limit updates, and rewards tracking
+  contact:
+    name: AuraBank Card Services
+    email: cards@aurabank.internal
+servers:
+  - url: http://localhost:5000/api
+    description: Local Dev Server
+paths:
+  /cards:
+    get:
+      summary: List user cards
+      operationId: listCards
+      description: Returns all active and frozen cards associated with user
+      responses:
+        '200':
+          description: List of cards
+components:
+  schemas:
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+        card_number:
+          type: string
+        card_type:
+          type: string
+        status:
+          type: string
