@@ -1,0 +1,20 @@
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: kafka-broker-kill
+  namespace: banking
+spec:
+  appinfo:
+    appns: banking
+    applabel: app=kafka
+    appkind: statefulset
+  chaosServiceAccount: litmus-admin
+  experiments:
+    - name: pod-delete
+      spec:
+        components:
+          env:
+            - name: TOTAL_CHAOS_DURATION
+              value: "45"
+            - name: CHAOS_INTERVAL
+              value: "15"
