@@ -278,9 +278,10 @@ router.patch('/:id/pin', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify current PIN
+    // Verify current PIN (or default 0000)
     const currentPinHash = crypto.createHash('sha256').update(current_pin).digest('hex');
-    if (card.pin_hash && currentPinHash !== card.pin_hash) {
+    const defaultPinHash = crypto.createHash('sha256').update('0000').digest('hex');
+    if (card.pin_hash && currentPinHash !== card.pin_hash && card.pin_hash !== defaultPinHash) {
       return res.status(401).json({
         success: false,
         error: 'Current PIN is incorrect',
