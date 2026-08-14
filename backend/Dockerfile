@@ -2,17 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-COPY tsconfig.json ./
+COPY --chown=node:node package*.json ./
+COPY --chown=node:node tsconfig.json ./
 
 RUN npm install --omit=dev --legacy-peer-deps
 
-COPY src/ src/
+COPY --chown=node:node src/ src/
 
 ENV NODE_ENV=production
 
-# Set directory permissions for non-root user
-RUN chown -R node:node /app
 USER node
 
 EXPOSE 5000
