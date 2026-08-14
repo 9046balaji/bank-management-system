@@ -1,0 +1,106 @@
+openapi: 3.0.3
+info:
+  title: AuraBank Auth & User Service API
+  version: 1.0.0
+  description: Authentication, User Profiles, KYC, and JWT Token Management
+  contact:
+    name: AuraBank Platform Engineering
+    email: devops@aurabank.internal
+servers:
+  - url: http://localhost:5000/api
+    description: Local Dev Server
+paths:
+  /users/register:
+    post:
+      summary: Register a new customer
+      operationId: registerUser
+      description: Creates user credentials and triggers initial profile setup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+        '400':
+          description: Invalid payload or password criteria failed
+        '409':
+          description: User with email already exists
+  /users/login:
+    post:
+      summary: User login
+      operationId: loginUser
+      description: Authenticates user credentials and returns JWT access and refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+  /users/profile:
+    get:
+      summary: Get user profile
+      operationId: getUserProfile
+      description: Retrieves profile details for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile details
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - full_name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        full_name:
+          type: string
+        phone:
+          type: string
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          type: object
