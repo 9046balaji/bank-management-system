@@ -1,11 +1,6 @@
+# This file intentionally left empty — all dashboards provisioned via dashboards.yaml
+# Duplicate provider removed to fix "the same UID is used more than once" Grafana warning
+# that was blocking dashboard writes (see audit finding #1)
 apiVersion: 1
 
-providers:
-  - name: 'AuraBank Observability Dashboards'
-    orgId: 1
-    folder: 'AuraBank Infrastructure'
-    type: file
-    disableDeletion: false
-    editable: true
-    options:
-      path: /var/lib/grafana/dashboards
+providers: []
