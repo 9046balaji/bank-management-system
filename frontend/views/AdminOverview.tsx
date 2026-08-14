@@ -123,11 +123,15 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ user }) => {
     setLoading(false);
   };
 
+// @ts-ignore - Vite provides import.meta.env
+const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:5000/api';
+
   const fetchLoanPayments = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/ai/loans/payments?limit=10', {
+      const response = await fetch(`${API_BASE}/admin/ai/loans/payments?limit=10`, {
         credentials: 'include',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('aura_session_token') || ''}`,
         },
       });
