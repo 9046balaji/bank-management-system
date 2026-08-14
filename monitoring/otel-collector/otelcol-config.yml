@@ -1,0 +1,104 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'aurabank-backend'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['backend:5000']
+
+connectors:
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1000ms, 2500ms, 5000ms, 10000ms]
+    dimensions:
+      - name: http.status_code
+      - name: http.method
+      - name: service.criticality
+
+processors:
+  batch:
+    send_batch_size: 8192
+    timeout: 1s
+    send_batch_max_size: 10240
+
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 20
+
+  tail_sampling:
+    decision_wait: 5s
+    num_traces: 50000
+    expected_new_traces_per_sec: 2000
+    policies:
+      # Policy 1: Always sample critical services (100%)
+      - name: critical-services-always-sample
+        type: string_attribute
+        string_attribute:
+          key: service.criticality
+          values:
+            - critical
+          enabled_regex_matching: false
+          invert_match: false
+
+      # Policy 2: Sample 50% of high-criticality services
+      - name: high-criticality-probabilistic
+        type: and
+        and:
+          and_sub_policy:
+            - name: is-high-criticality
+              type: string_attribute
+              string_attribute:
+                key: service.criticality
+                values:
+                  - high
+            - name: probabilistic-50
+              type: probabilistic
+              probabilistic:
+                sampling_percentage: 50
+
+      # Policy 3: Always sample error traces regardless of criticality
+      - name: errors-always-sample
+        type: status_code
+        status_code:
+          status_codes:
+            - ERROR
+
+      # Policy 4: Always sample slow traces (>2s)
+      - name: slow-traces-always-sample
+        type: latency
+        latency:
+          threshold_ms: 2000
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: "aurabank"
+
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tail_sampling, batch]
+      exporters: [otlp/jaeger, spanmetrics, debug]
+    metrics:
+      receivers: [otlp, prometheus, spanmetrics]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
