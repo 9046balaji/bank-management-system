@@ -1,5 +1,6 @@
 import express, { Router, Request, Response } from 'express';
 import { query } from '../db/connection';
+import { adminMiddleware, authMiddleware } from '../middleware/authMiddleware';
 
 const router: Router = express.Router();
 
@@ -74,7 +75,7 @@ router.get('/category/:category', async (req: Request, res: Response) => {
 // ==========================================
 // GET AUDIT LOG
 // ==========================================
-router.get('/audit-log', async (req: Request, res: Response) => {
+router.get('/audit-log', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
@@ -150,7 +151,7 @@ router.get('/:key', async (req: Request, res: Response) => {
 // ==========================================
 // UPDATE/CREATE CONFIG
 // ==========================================
-router.put('/:key', async (req: Request, res: Response) => {
+router.put('/:key', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { key } = req.params;
     const { value, description, changed_by, changed_by_name, change_reason } = req.body;
@@ -206,7 +207,7 @@ router.put('/:key', async (req: Request, res: Response) => {
 // ==========================================
 // BATCH UPDATE CONFIG
 // ==========================================
-router.put('/', async (req: Request, res: Response) => {
+router.put('/', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { settings, changed_by, changed_by_name, change_reason } = req.body;
 
@@ -264,7 +265,7 @@ router.put('/', async (req: Request, res: Response) => {
 // ==========================================
 // DELETE CONFIG KEY
 // ==========================================
-router.delete('/:key', async (req: Request, res: Response) => {
+router.delete('/:key', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { key } = req.params;
     
