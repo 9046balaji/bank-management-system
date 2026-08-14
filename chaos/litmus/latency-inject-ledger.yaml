@@ -1,0 +1,20 @@
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: ledger-latency-injection
+  namespace: banking
+spec:
+  appinfo:
+    appns: banking
+    applabel: app=ledger-service
+    appkind: deployment
+  chaosServiceAccount: litmus-admin
+  experiments:
+    - name: pod-network-latency
+      spec:
+        components:
+          env:
+            - name: LATENCY
+              value: "500"     # 500ms network delay
+            - name: TOTAL_CHAOS_DURATION
+              value: "60"
