@@ -1,0 +1,116 @@
+# monitoring/prometheus/slo-rules.yaml
+# =============================================================
+# Prometheus SLO Recording Rules
+# =============================================================
+# These recording rules compute SLI metrics and error budgets
+# for all microservices per the SLO targets defined in Section 5.3
+# of the implementation plan.
+#
+# SLO Targets:
+#   Payment API:    99.9% availability   (~43 min/30d budget)
+#   Ledger gRPC:    p99 < 150ms
+#   Fraud Engine:   p95 < 10ms, fallback < 2%
+#   Auth Service:   99.95% availability  (~22 min/30d budget)
+#   Kafka:          consumer lag < 500 msgs
+# =============================================================
+
+groups:
+
+  # ── Payment API SLO ─────────────────────────────────────────
+  - name: slo_payment_api
+    interval: 30s
+    rules:
+      # SLI: HTTP success ratio (non-5xx / total)
+      - record: slo:payment_api:success_rate:5m
+        expr: |
+          sum(rate(http_requests_total{job="payment-service",code!~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="payment-service"}[5m]))
+
+      # Error budget remaining (1.0 = full, 0.0 = exhausted)
+      - record: slo:payment_api:error_budget_remaining:30d
+        expr: |
+          1 - (
+            (1 - slo:payment_api:success_rate:5m) /
+            (1 - 0.999)
+          )
+
+      # Burn rate — how fast is the error budget being consumed?
+      - record: slo:payment_api:error_budget_burn_rate:1h
+        expr: |
+          (1 - slo:payment_api:success_rate:5m) / (1 - 0.999)
+
+  # ── Ledger gRPC SLO ─────────────────────────────────────────
+  - name: slo_ledger_grpc
+    interval: 30s
+    rules:
+      - record: slo:ledger_grpc:p99_latency_seconds:5m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(grpc_server_handling_seconds_bucket{job="ledger-service"}[5m]))
+            by (le)
+          )
+
+      - record: slo:ledger_grpc:p95_latency_seconds:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(grpc_server_handling_seconds_bucket{job="ledger-service"}[5m]))
+            by (le)
+          )
+
+  # ── Fraud Engine SLO ────────────────────────────────────────
+  - name: slo_fraud_engine
+    interval: 30s
+    rules:
+      # p95 latency in milliseconds (target: < 10ms)
+      - record: slo:fraud_engine:p95_latency_ms:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(grpc_server_handling_seconds_bucket{job="fraud-service"}[5m]))
+            by (le)
+          ) * 1000
+
+      # Fallback rate: what fraction of requests used rule-based fallback?
+      - record: slo:fraud_engine:fallback_rate:5m
+        expr: |
+          sum(rate(fraud_fallback_total[5m]))
+          /
+          sum(rate(fraud_evaluations_total[5m]))
+
+  # ── Auth Service SLO ────────────────────────────────────────
+  - name: slo_auth_service
+    interval: 30s
+    rules:
+      - record: slo:auth_service:success_rate:5m
+        expr: |
+          sum(rate(http_requests_total{job="auth-service",code!~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="auth-service"}[5m]))
+
+      - record: slo:auth_service:error_budget_remaining:30d
+        expr: |
+          1 - (
+            (1 - slo:auth_service:success_rate:5m) /
+            (1 - 0.9995)
+          )
+
+  # ── Outbox Worker Health ─────────────────────────────────────
+  - name: outbox_health
+    interval: 30s
+    rules:
+      - record: outbox:events_stuck:seconds_since_last_process
+        expr: |
+          time() - outbox_last_processed_timestamp_seconds
+
+  # ── OTel Gateway Span Export ─────────────────────────────────
+  - name: slo_otel_gateway
+    interval: 30s
+    rules:
+      - record: slo:otel_gateway:span_export_success_rate:5m
+        expr: |
+          sum(rate(otelcol_exporter_sent_spans_total[5m]))
+          /
+          (
+            sum(rate(otelcol_exporter_sent_spans_total[5m])) +
+            sum(rate(otelcol_exporter_send_failed_spans_total[5m]))
+          )
