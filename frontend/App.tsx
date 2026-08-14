@@ -215,10 +215,10 @@ const App: React.FC = () => {
   const handleLogin = (userData: any) => {
     // Check if this is a new user from registration
     if (userData.isNewUser) {
-      // Store user data and redirect to dashboard
+      // Store user data and redirect to KYC onboarding to create account & set PIN
       handleUpdateUser({
         id: userData.id,
-        name: userData.name,
+        name: userData.name || userData.full_name,
         email: userData.email,
         role: UserRole.USER,
         isKycCompleted: false,
@@ -229,7 +229,7 @@ const App: React.FC = () => {
         setAuthToken(userData.token);
         localStorage.setItem(SESSION_TOKEN_KEY, userData.token);
       }
-      setCurrentView(View.DASHBOARD);
+      setCurrentView(View.KYC);
       return;
     }
 
@@ -371,10 +371,11 @@ const App: React.FC = () => {
           
           handleUpdateUser({ 
             isKycCompleted: true, 
-            accountNumber: data.accountNumber,
+            accountNumber: newAccount.account_number,
             balance: newAccount.balance,
             accounts: [newAccount]
           });
+          refreshUserData();
           setCurrentView(View.DASHBOARD);
         }} 
       />;
