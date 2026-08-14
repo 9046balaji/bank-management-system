@@ -1,23 +1,22 @@
-# 🏦 Aura Bank - Integrated Enterprise Fintech Ecosystem
+# 🏦 Aura Bank - Cloud-Native Microservices & AI Platform
 
 <div align="center">
 
-![Aura Bank Logo](https://img.shields.io/badge/AURA-BANK-135bec?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0wIDE4Yy00LjQxIDAtOC0zLjU5LTgtOHMzLjU5LTggOC04IDggMy41OSA4IDgtMy41OSA4LTggOHptLjMxLTguODZjLTEuNzctLjQ1LTIuMzQtLjk0LTIuMzQtMS42NyAwLS44NC43OS0xLjQzIDIuMS0xLjQzIDEuMzggMCAxLjkuNjYgMS45NCAxLjY0aDEuNzFjLS4wNS0xLjM0LS44Ny0yLjU3LTIuNDktMi45N1Y1SDEwLjl2MS42OWMtMS41MS4zMi0yLjcyIDEuMy0yLjcyIDIuTUg0LjE5IDEuNzkgMS40OSAyLjY4IDMuNjYgMy4yMSAxLjk1LjQ3IDIuMzQgMS4xNSAyLjM0IDEuODcgMCAuNTMtLjM5IDEuMzktMi4xIDEuMzktMS42 CjAtMi4yMy0uNzItMi4zMi0xLjY0SDguMDRjLjEgMS43IDEuMzYgMi42NiAyLjg2IDIuOTdWMTloMi4zNHYtMS42N2MxLjUyLS4yOSAyLjcyLTEuMTYgMi43Mi0yLjc0IDAtMi4yLTEuOS0yLjk1LTMuNjUtMy40NXoiLz48L3N2Zz4=)
+![Aura Bank Logo](https://img.shields.io/badge/AURA-BANK-135bec?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0wIDE4Yy00LjQxIDAtOC0zLjU5LTgtOHMzLjU5LTggOC04IDggMy41OSA4IDgtMy41OSA4LTggOHptLjMxLTguODZhYy0xLjc3LS40NS0yLjM0LS45NC0yLjM0LTEuNjcgMC0uODQuNzktMS40MyAyLjEtMS40MyAxLjM4IDAgMS45LjY2IDEuOTQgMS42NGgxLjcxYy0uMDUtMS4zNC0uODctMi41Ny0yLjQ5LTIuOTdWNUgxMC45djEuNjljLTEuNTEuMzItMi43MiAxLjMtMi43MiAyLTVIND4xOSAxLjc5IDEuNDkgMi42OCAzLjY2IDMuMjEgMS45NS40NyAyLjM0IDEuMTUgMi4zNCAxLjg3IDAgLjUzLS4zOSAxLjM5LTIuMSAxLjM5LTEuNiBDMC0yLjIzLS43Mi0yLjMyLTEuNjRIOC4wNGMuMSAxLjcgMS4zNiAyLjY2IDIuODYgMi45N1YxOWgyLjM0di0xLjY3YzEuNTItLjI5IDIuNzItMS4xNiAyLjcyLTIuNzQgMC0yLjItMS45LTIuOTUtMy42NS0zLjQ1eiIvPjwvc3ZnPg==)
 
-**Production-Grade Containerized Banking Ecosystem with Double-Entry Accounting, Real-Time AI Risk Scoring, OpenTelemetry Tracing & Full Observability**
+**Cloud-Native Microservices Platform on AWS EKS with Double-Entry Ledger, Event-Driven Transactional Outbox, Real-Time gRPC AI Risk Scoring, pgvector RAG, GitOps (ArgoCD), and OpenTelemetry Observability**
 
-[![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=flat-square&logo=react)](https://react.dev/)
-[![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Node.js Express](https://img.shields.io/badge/Node.js-Express_4.18-339933?style=flat-square&logo=node.js)](https://nodejs.org/)
-[![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
-[![Python Flask ML](https://img.shields.io/badge/Python-Flask_3.11_ML-3776AB?style=flat-square&logo=python)](https://www.python.org/)
-[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Collector_v0.95-000000?style=flat-square&logo=opentelemetry)](https://opentelemetry.io/)
-[![Docker Compose](https://img.shields.io/badge/Docker_Compose-Multi--Container-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-v2.49-E6522C?style=flat-square&logo=prometheus)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Grafana-v10.3-F46800?style=flat-square&logo=grafana)](https://grafana.com/)
-[![Jaeger](https://img.shields.io/badge/Jaeger-v1.54-60D0E4?style=flat-square&logo=jaegertracing)](https://www.jaegertracing.io/)
+[![Go Microservices](https://img.shields.io/badge/Go-v1.22-00ADD8?style=flat-square&logo=go)](https://go.dev/)
+[![Node.js TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Python FastAPI](https://img.shields.io/badge/Python-FastAPI_v0.109-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![AWS EKS](https://img.shields.io/badge/AWS-EKS_v1.30-FF9900?style=flat-square&logo=amazonaws)](https://aws.amazon.com/eks/)
+[![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=flat-square&logo=terraform)](https://www.terraform.io/)
+[![ArgoCD](https://img.shields.io/badge/GitOps-ArgoCD-EF7B4D?style=flat-square&logo=argo)](https://argoproj.github.io/cd/)
+[![Kafka](https://img.shields.io/badge/Kafka-Strimzi-231F20?style=flat-square&logo=apachekafka)](https://kafka.apache.org/)
+[![pgvector](https://img.shields.io/badge/Vector_DB-pgvector_384dim-336791?style=flat-square&logo=postgresql)](https://github.com/pgvector/pgvector)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Collector-000000?style=flat-square&logo=opentelemetry)](https://opentelemetry.io/)
 
-[System Architecture](#-system-architecture) • [Application Views Catalog](#-application-views-catalog) • [Double-Entry Ledger](#-double-entry-accounting-ledger) • [Observability Stack](#-observability--monitoring-stack) • [Quick Start](#-quick-start--deployment) • [Microservices Migration Plan](#-microservices-migration-roadmap)
+[System Architecture](#-system-architecture) • [Microservices Catalog](#-microservices-catalog) • [Double-Entry Ledger](#-double-entry-accounting-ledger) • [Observability Stack](#-observability--monitoring-stack) • [Quick Start](#-quick-start--deployment)
 
 </div>
 
@@ -25,65 +24,19 @@
 
 ## 📖 Executive Summary
 
-**Aura Bank** is an enterprise-grade digital banking and financial management ecosystem built with modern cloud-native architectures. The platform integrates:
-- **Strict Double-Entry Bookkeeping**: Mathematical zero-sum accounting (`DEBIT + CREDIT = 0`) preventing balance drifts.
-- **AI & Risk Engine**: Scikit-learn models for real-time transaction fraud scoring, loan credit evaluation, and online re-trainable expense categorization.
-- **Cardless ATM Withdrawals**: 6-digit cryptographic token generation (`atm_codes`) for cardless cash pickup.
-- **Credit & Debit Card Management**: Dynamic limit controls, card freeze/unfreeze, PIN resetting, and rewards calculations.
-- **Full SRE & Observability Suite**: OpenTelemetry Collector gateway, Jaeger distributed tracing, Prometheus metrics, Grafana dashboards, Alertmanager, cAdvisor, and Node Exporter.
-- **DevOps + AI Architecture Plan**: Clear 5-phase migration roadmap from monolithic architecture to AWS EKS microservices with GitOps (ArgoCD) and Transactional Outbox pattern.
+**Aura Bank** is a cloud-native microservices fintech platform hosted on **AWS EKS**. The platform decomposed an original monolith into 9 domain-isolated microservices featuring:
+- **Strict Double-Entry Bookkeeping**: Mathematical zero-sum accounting (`DEBIT + CREDIT = 0`) with PostgreSQL immutability DB triggers.
+- **Transactional Outbox Pattern**: Concurrent-safe `FOR UPDATE SKIP LOCKED` outbox worker polling guarantees at-least-once Kafka event delivery.
+- **Authoritative Idempotency Engine**: PostgreSQL `UNIQUE(idempotency_key)` constraints combined with Redis fast-path caching.
+- **FastAPI & gRPC AI Risk Scoring**: Python AI Fraud Engine (`p95 < 10ms` target) with XGBoost inference and deterministic rule-based fallback.
+- **GenAI Financial Advisor RAG**: PostgreSQL `pgvector` IVFFlat index with `sentence-transformers/all-MiniLM-L6-v2` 384-dimensional embeddings.
+- **Full SRE & Observability Mesh**: OTel Agent + Gateway, Tail Sampling, Jaeger distributed tracing, Prometheus SLO recording rules, Alertmanager alerts, Grafana error budget dashboards, and LitmusChaos MTTR benchmarks.
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Target Microservices Architecture
 
 ```mermaid
-graph TB
-    subgraph PresentationLayer["🖥️ Presentation Layer"]
-        WebSPA["React 19 SPA (Port 3000)<br/>18 Rich Application Views"]
-        MobileClient["React Native App Client"]
-    end
-
-    subgraph IngressLayer["🛡️ Edge & Gateway"]
-        Nginx["Nginx Reverse Proxy / Router"]
-    end
-
-    subgraph ServiceLayer["⚙️ Core Services"]
-        ExpressBackend["Node.js Express Backend (Port 5000)<br/>13 REST API Domains"]
-        AIService["Python Flask AI Service (Port 5001)<br/>Fraud, Loan & Expense ML Engine"]
-    end
-
-    subgraph DataLayer["🗄️ Persistence & Caching"]
-        Postgres[("PostgreSQL 15 DB (Port 5432)<br/>users, accounts, transactions, cards,<br/>loans, ledger_entries, atm_codes")]
-        Redis[("Redis 7 Cache (Port 6379)<br/>Sessions & Idempotency Store")]
-    end
-
-    subgraph ObservabilityLayer["📊 Observability & SRE Mesh"]
-        OTelCol[["OpenTelemetry Collector (Ports 4317/4318)<br/>SpanMetrics & Tail Sampling"]]
-        Jaeger["Jaeger Traces UI (Port 16686)"]
-        Prometheus["Prometheus Server (Port 9090)"]
-        Grafana["Grafana Dashboards (Port 3001)"]
-        AlertManager["Alertmanager (Port 9093)"]
-        NodeExporter["Node Exporter (Port 9100)"]
-        cAdvisor["cAdvisor Containers (Port 8080)"]
-    end
-
-    WebSPA --> Nginx
-    MobileClient --> Nginx
-    Nginx --> ExpressBackend
-
-    ExpressBackend -->|SQL Queries| Postgres
-    ExpressBackend -->|RESP Caching| Redis
-    ExpressBackend -->|gRPC / REST| AIService
-
-    ExpressBackend -.->|OTLP Spans| OTelCol
-    AIService -.->|Metrics & Logs| Prometheus
-
-    OTelCol --> Jaeger
-    OTelCol --> Prometheus
-    Prometheus --> AlertManager
-    Grafana --> Prometheus
-    Grafana --> Jaeger
 ```
 
 ---
