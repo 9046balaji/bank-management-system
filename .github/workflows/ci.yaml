@@ -48,6 +48,13 @@ jobs:
             path: ai-service
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node.js with caching
+        if: matrix.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'backend/package-lock.json'
       - name: Run tests (Node.js)
         if: matrix.language == 'node'
         run: |
@@ -57,6 +64,13 @@ jobs:
         env:
           JWT_SECRET: test_secret_12345
           JWT_REFRESH_SECRET: test_refresh_secret_12345
+      - name: Setup Python with caching
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'ai-service/requirements.txt'
       - name: Run tests (Python)
         if: matrix.language == 'python'
         run: |
