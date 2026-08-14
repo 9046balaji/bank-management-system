@@ -470,6 +470,7 @@ export const runMigrations = async () => {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`ALTER TABLE IF EXISTS feedback ADD COLUMN IF NOT EXISTS responded_by UUID REFERENCES users(id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_type ON feedback(type)`);
