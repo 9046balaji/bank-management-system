@@ -561,7 +561,7 @@ router.post('/:id/complete-kyc', authMiddleware, async (req: Request, res: Respo
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
-    const { address, phone_number } = req.body;
+    const { address, phone_number, pin } = req.body;
 
     // Update user's KYC status
     const userResult = await query(
@@ -582,44 +582,56 @@ router.post('/:id/complete-kyc', authMiddleware, async (req: Request, res: Respo
       });
     }
 
-    // Generate account number (10 digits)
-    const accountNumber = crypto.randomInt(1000000000, 9999999999).toString();
-
     const user = userResult.rows[0];
     delete user.password_hash;
 
-    // Create savings account for user
-    const accountResult = await query(
-      `INSERT INTO accounts (user_id, account_number, account_type, balance)
-       VALUES ($1, $2, 'SAVINGS', 0)
-       RETURNING *`,
-      [id, accountNumber]
-    );
+    // Check if account already exists for user, or create savings account
+    let account;
+    const existingAcc = await query('SELECT * FROM accounts WHERE user_id = $1 LIMIT 1', [id]);
+    if (existingAcc.rowCount && existingAcc.rowCount > 0) {
+      account = existingAcc.rows[0];
+    } else {
+      const accountNumber = crypto.randomInt(1000000000, 9999999999).toString();
+      const accountResult = await query(
+        `INSERT INTO accounts (user_id, account_number, account_type, balance)
+         VALUES ($1, $2, 'SAVINGS', 0)
+         RETURNING *`,
+        [id, accountNumber]
+      );
+      account = accountResult.rows[0];
+    }
 
-    const account = accountResult.rows[0];
+    // Generate or update card for the account
+    let card;
+    const userPin = (pin && pin.length === 4) ? pin : '0000';
+    const pinHash = crypto.createHash('sha256').update(userPin).digest('hex');
 
-    // Generate card for the account
-    const last4 = crypto.randomInt(1000, 9999).toString();
-    const cardNumberMasked = `•••• •••• •••• ${last4}`;
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 4);
-    const expiryStr = `${String(expiryDate.getMonth() + 1).padStart(2, '0')}/${String(expiryDate.getFullYear()).slice(-2)}`;
-    const defaultPin = '0000';
-    const pinHash = crypto.createHash('sha256').update(defaultPin).digest('hex');
+    const existingCard = await query('SELECT * FROM cards WHERE account_id = $1 LIMIT 1', [account.id]);
+    if (existingCard.rowCount && existingCard.rowCount > 0) {
+      const updatedCard = await query('UPDATE cards SET pin_hash = $2 WHERE id = $1 RETURNING *', [existingCard.rows[0].id, pinHash]);
+      card = updatedCard.rows[0];
+    } else {
+      const last4 = crypto.randomInt(1000, 9999).toString();
+      const cardNumberMasked = `•••• •••• •••• ${last4}`;
+      const expiryDate = new Date();
+      expiryDate.setFullYear(expiryDate.getFullYear() + 4);
+      const expiryStr = `${String(expiryDate.getMonth() + 1).padStart(2, '0')}/${String(expiryDate.getFullYear()).slice(-2)}`;
 
-    const cardResult = await query(
-      `INSERT INTO cards (account_id, card_number_masked, card_holder_name, expiry_date, pin_hash, status, daily_limit, is_international_enabled, is_online_enabled)
-       VALUES ($1, $2, $3, $4, $5, 'ACTIVE', 1500.00, true, true)
-       RETURNING *`,
-      [account.id, cardNumberMasked, user.full_name.toUpperCase(), expiryStr, pinHash]
-    );
+      const cardResult = await query(
+        `INSERT INTO cards (account_id, card_number_masked, card_holder_name, expiry_date, pin_hash, status, daily_limit, is_international_enabled, is_online_enabled)
+         VALUES ($1, $2, $3, $4, $5, 'ACTIVE', 1500.00, true, true)
+         RETURNING *`,
+        [account.id, cardNumberMasked, user.full_name.toUpperCase(), expiryStr, pinHash]
+      );
+      card = cardResult.rows[0];
+    }
 
     res.json({
       success: true,
       data: {
         user,
         account: account,
-        card: cardResult.rows[0],
+        card: card,
       },
       message: 'KYC completed successfully. Your account and card have been created.',
     });
