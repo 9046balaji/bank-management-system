@@ -4,8 +4,8 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { UserRole, UserState } from '../../types';
-import { INITIAL_STATE } from '../../constants';
+import { UserRole, UserState } from '../types';
+import { INITIAL_STATE } from '../constants';
 import { userApi } from '../services/api';
 
 // Session storage keys

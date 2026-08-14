@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Account, Transaction } from '../../types';
+import { Account, Transaction } from '../types';
 import { transactionApi, accountApi } from '../services/api';
 import { useAuth } from './AuthContext';
 
