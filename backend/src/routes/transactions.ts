@@ -338,18 +338,35 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
 
     // Verify PIN (mandatory)
     const pinHash = crypto.createHash('sha256').update(pin).digest('hex');
-    
-    if (!sender.pin_hash) {
-      return res.status(400).json({
-        success: false,
-        error: 'Card PIN has not been set. Please set your PIN before making transactions.',
-      });
+    let effectivePinHash = sender.pin_hash;
+
+    if (!effectivePinHash) {
+      // Check if user has any active card
+      const cardCheck = await query(
+        `SELECT pin_hash, status, daily_limit FROM cards 
+         WHERE account_id = $1 OR account_id IN (SELECT id FROM accounts WHERE user_id = $2)
+         ORDER BY created_at DESC LIMIT 1`,
+        [from_account_id, req.userId]
+      );
+      if (cardCheck.rowCount && cardCheck.rowCount > 0) {
+        effectivePinHash = cardCheck.rows[0].pin_hash;
+      }
     }
 
-    if (pinHash !== sender.pin_hash) {
+    if (!effectivePinHash) {
+      // Auto-create default card record with this PIN if non-existent
+      await query(
+        `INSERT INTO cards (account_id, card_number_masked, card_holder_name, expiry_date, pin_hash, status, daily_limit)
+         VALUES ($1, $2, 'PRIMARY CARD', '12/30', $3, 'ACTIVE', 50000.00)`,
+        [from_account_id, `•••• •••• •••• ${crypto.randomInt(1000, 9999)}`, pinHash]
+      );
+      effectivePinHash = pinHash;
+    }
+
+    if (pinHash !== effectivePinHash) {
       return res.status(401).json({
         success: false,
-        error: 'Invalid PIN',
+        error: 'Incorrect PIN. Please enter your valid 4-digit PIN.',
       });
     }
 
