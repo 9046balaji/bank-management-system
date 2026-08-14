@@ -26,6 +26,7 @@ volumes:
   grafana_local_data:
   mlflow_local_data:
   loki_local_data:
+  pg_backups:  # FIX #25: Database backup storage volume
 
 services:
 
@@ -126,15 +127,26 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: aurabank-kafka-ui
-    restart: unless-stopped
+    restart: on-failure:5
     ports:
-      - "9080:8080"
+      # FIX #15: Bind only to localhost to prevent external access
+      - "127.0.0.1:9080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: aurabank-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      # FIX #15: Add login authentication to Kafka UI
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: ${KAFKA_UI_PASSWORD:-aurabank_kafka_ui_2026}
     depends_on:
       kafka:
         condition: service_healthy
+    # FIX #16: Log rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
     networks:
       - aurabank-local
 
@@ -152,8 +164,10 @@ services:
       AWS_DEFAULT_REGION: us-east-1
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local
-      # Pre-create buckets on startup
       LOCALSTACK_HOST: localstack
+      # FIX #5: Disable telemetry to analytics.localstack.cloud to prevent crash
+      # on shutdown in environments with no outbound internet access
+      DISABLE_EVENTS: "1"
     ports:
       - "4566:4566"
     volumes:
@@ -163,6 +177,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    # FIX #16: Log rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - aurabank-local
 
@@ -404,8 +424,45 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: aurabank-node-exporter-local
-    restart: unless-stopped
+    restart: on-failure:5
     ports:
       - "9100:9100"
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # FIX #25: DATABASE BACKUPS — pg_dump cron job
+  # Runs daily at midnight, keeps last 7 backups, saves to /backups
+  # ============================================================
+  pg-backup:
+    image: postgres:15-alpine
+    container_name: aurabank-pg-backup
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: aurabank
+      PGPASSWORD: local_dev_password
+      PGDATABASE: aurabank
+      BACKUP_DIR: /backups
+    volumes:
+      - pg_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Run pg_dump every 24 hours, keep last 7 backups
+    command: >
+      sh -c "while true; do
+        TIMESTAMP=$$(date +%Y%m%d_%H%M%S);
+        pg_dump -Fc $$PGDATABASE > $$BACKUP_DIR/aurabank_$$TIMESTAMP.dump;
+        echo 'Backup completed: '$$TIMESTAMP;
+        ls -t $$BACKUP_DIR/*.dump | tail -n +8 | xargs -r rm;
+        echo 'Retaining last 7 backups. Next backup in 24h.';
+        sleep 86400;
+      done"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
     networks:
       - aurabank-local
