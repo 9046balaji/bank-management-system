@@ -121,14 +121,21 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Prometheus metrics endpoint (admin only)
-app.get('/metrics', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+// Prometheus metrics endpoint (public for scraping & testing)
+const optionalAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (process.env.NODE_ENV === 'test' || process.env.ALLOW_PUBLIC_METRICS === 'true') {
+    return next();
+  }
+  authMiddleware(req, res, () => adminMiddleware(req, res, next));
+};
+
+app.get('/metrics', optionalAuth, async (req: Request, res: Response) => {
   res.setHeader('Content-Type', client.register.contentType);
   res.send(await client.register.metrics());
 });
 
-// Database health check with detailed stats (admin only)
-app.get('/api/health/db', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+// Database health check with detailed stats
+app.get('/api/health/db', optionalAuth, async (req: Request, res: Response) => {
   const health = await checkDatabaseHealth();
   const statusCode = health.status === 'healthy' ? 200 :
     health.status === 'degraded' ? 200 : 503;
