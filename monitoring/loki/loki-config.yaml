@@ -23,6 +23,8 @@ common:
       store: inmemory
 
 query_range:
+  # FIX #9: Set explicit query timeout to suppress warning and prevent runaway queries
+  query_timeout: 2m
   results_cache:
     cache:
       embedded_cache:
