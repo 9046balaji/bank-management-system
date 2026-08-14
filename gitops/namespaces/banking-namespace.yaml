@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: banking
+  labels:
+    name: banking
+    environment: production
+    istio-injection: enabled
