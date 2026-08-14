@@ -1,0 +1,52 @@
+# monitoring/prometheus/prometheus.local.yml
+# =============================================================
+# Prometheus — Local Dev Config
+# Scrapes monolith services + OTel collector metrics endpoint
+# Also loads SLO recording rules for local validation.
+# =============================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - "alerts.yml"
+  - "slo-rules.yaml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:9093"
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Existing monolith backend
+  - job_name: "express-backend"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["backend:5000"]
+
+  # Existing Flask AI service
+  - job_name: "flask-ai-service"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["ai-service:5001"]
+
+  # OTel Collector SpanMetrics output
+  - job_name: "otel-collector"
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Kafka (via JMX exporter — add when Kafka service has JMX configured)
+  # - job_name: "kafka"
+  #   static_configs:
+  #     - targets: ["kafka:9101"]
