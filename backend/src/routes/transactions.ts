@@ -279,6 +279,46 @@ router.post('/transfer', idempotencyMiddleware, async (req: Request, res: Respon
       });
     }
 
+    // Real-Time AI Fraud Detection Assessment
+    const ML_API_URL = process.env.ML_API_URL || 'http://localhost:5001';
+    let isHighRiskFraud = false;
+    let fraudProbability = 0.08;
+
+    try {
+      const mlRes = await fetch(`${ML_API_URL}/predict_fraud`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          Amount: amount,
+          is_foreign: transfer_type === 'INTERNATIONAL',
+          simplified: true,
+        }),
+      });
+
+      if (mlRes.ok) {
+        const mlData: any = await mlRes.json();
+        fraudProbability = mlData.fraud_probability || 0.08;
+        if (mlData.is_fraud || mlData.risk_level === 'HIGH') {
+          isHighRiskFraud = true;
+        }
+      }
+    } catch (mlErr) {
+      // Fallback evaluation if AI service is temporarily offline
+      if (amount > 10000 || (amount > 5000 && transfer_type === 'INTERNATIONAL')) {
+        isHighRiskFraud = true;
+        fraudProbability = 0.75;
+      }
+    }
+
+    if (isHighRiskFraud) {
+      return res.status(403).json({
+        success: false,
+        error: 'Transaction blocked by Aura Real-Time AI Fraud Detection (High Risk Flagged)',
+        fraud_probability: fraudProbability,
+        code: 'FRAUD_PREVENTION_TRIGGERED',
+      });
+    }
+
     // Generate reference ID with idempotency key if provided
     const referenceId = idempotency_key 
       ? `TXN-${idempotency_key}` 
