@@ -198,7 +198,7 @@ export const userApi = {
     }),
 
   // Complete KYC
-  completeKyc: (id: string, data: { address?: string; phone_number?: string }) =>
+  completeKyc: (id: string, data: { address?: string; phone_number?: string; pin?: string }) =>
     request(`/users/${id}/complete-kyc`, {
       method: 'POST',
       body: JSON.stringify(data),
