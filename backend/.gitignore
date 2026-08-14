@@ -69,15 +69,6 @@ coverage/
 # Runtime
 pid/
 *.pid
-tests/
-C:\Users\ggvfj\Downloads\bank management system\backend\tests
-# Test files
-*.test.ts
-*.spec.ts
-test_*.ts
-check_*.ts
-create_test_*.ts
-vitest.config.ts
 
 # TypeScript build info
 *.tsbuildinfo
