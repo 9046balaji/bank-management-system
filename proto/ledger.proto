@@ -1,0 +1,65 @@
+syntax = "proto3";
+package ledger.v1;
+option go_package = "github.com/yourusername/aurabank/gen/go/ledger/v1;ledgerv1";
+
+import "google/protobuf/timestamp.proto";
+
+service LedgerService {
+    // Execute a balanced double-entry transaction
+    rpc ExecuteDoubleEntry(ExecuteDoubleEntryRequest)
+        returns (ExecuteDoubleEntryResponse);
+
+    // Get account balance
+    rpc GetAccountBalance(GetAccountBalanceRequest)
+        returns (GetAccountBalanceResponse);
+
+    // Verify ledger integrity (admin)
+    rpc VerifyIntegrity(VerifyIntegrityRequest)
+        returns (VerifyIntegrityResponse);
+}
+
+message LedgerEntry {
+    string account_id  = 1;
+    EntryType type     = 2;
+    string amount      = 3;   // Decimal string to avoid float precision loss
+    string currency    = 4;
+    string description = 5;
+}
+
+enum EntryType {
+    ENTRY_TYPE_UNSPECIFIED = 0;
+    ENTRY_TYPE_DEBIT       = 1;
+    ENTRY_TYPE_CREDIT      = 2;
+}
+
+message ExecuteDoubleEntryRequest {
+    string transaction_id      = 1;   // Idempotency key for gRPC call
+    repeated LedgerEntry entries = 2; // Must sum to zero
+    string initiated_by        = 3;   // Service name for audit
+}
+
+message ExecuteDoubleEntryResponse {
+    bool   success        = 1;
+    string ledger_ref     = 2;   // Ledger transaction UUID
+    string failure_reason = 3;
+    google.protobuf.Timestamp committed_at = 4;
+}
+
+message GetAccountBalanceRequest {
+    string account_id = 1;
+    string currency   = 2;
+}
+
+message GetAccountBalanceResponse {
+    string account_id = 1;
+    string balance    = 2;   // Decimal string
+    string currency   = 3;
+    bool   is_frozen  = 4;
+}
+
+message VerifyIntegrityRequest {}
+
+message VerifyIntegrityResponse {
+    bool   all_balanced     = 1;
+    int32  imbalanced_count = 2;
+}
