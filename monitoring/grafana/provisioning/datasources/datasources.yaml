@@ -1,0 +1,58 @@
+# monitoring/grafana/provisioning/datasources/datasources.yaml
+# =============================================================
+# Grafana Datasource Provisioning — Local Dev
+# =============================================================
+# Auto-provisions all datasources on Grafana startup.
+# No manual configuration needed.
+# =============================================================
+
+apiVersion: 1
+
+datasources:
+  # ── Prometheus (metrics) ────────────────────────────────────
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    version: 1
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: jaeger
+          urlDisplayLabel: "View in Jaeger"
+
+  # ── Jaeger (traces) ─────────────────────────────────────────
+  - name: Jaeger
+    uid: jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    version: 1
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        tags: [{ key: 'service.name', value: 'service_name' }]
+        filterByTraceID: true
+        filterBySpanID: false
+
+  # ── Loki (logs) ─────────────────────────────────────────────
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    version: 1
+    editable: false
+    jsonData:
+      derivedFields:
+        - datasourceUid: jaeger
+          matcherRegex: '"traceId":"(\w+)"'
+          name: TraceID
+          url: '$${__value.raw}'
+          urlDisplayLabel: "View Trace in Jaeger"
