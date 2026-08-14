@@ -1,0 +1,82 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # ── Proto Validation & Stub Generation ──────────────────────────────
+  proto-lint:
+    name: Protobuf Lint & Generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-setup-action@v1
+      - run: buf lint proto/
+      - run: buf generate proto/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proto-stubs
+          path: gen/
+
+  # ── OpenAPI Schema Validation ────────────────────────────────────────
+  openapi-lint:
+    name: OpenAPI Spectral Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g @stoplight/spectral-cli
+      - run: spectral lint openapi/*.yaml --ruleset openapi/.spectral.yaml
+
+  # ── Matrix Unit Tests ────────────────────────────────────────────────
+  test:
+    name: Test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            language: node
+            path: backend
+          - service: ai-service
+            language: python
+            path: ai-service
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests (Node.js)
+        if: matrix.language == 'node'
+        run: |
+          cd ${{ matrix.path }}
+          npm ci
+          npm test
+        env:
+          JWT_SECRET: test_secret_12345
+          JWT_REFRESH_SECRET: test_refresh_secret_12345
+      - name: Run tests (Python)
+        if: matrix.language == 'python'
+        run: |
+          cd ${{ matrix.path }}
+          pip install -r requirements.txt
+          pytest tests/ --cov
+
+  # ── Helm Chart Lint & Validation ──────────────────────────────────────
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v3
+      - run: |
+          if [ -d "helm" ]; then
+            for chart in helm/*/; do
+              if [ -f "$chart/Chart.yaml" ]; then
+                echo "Linting $chart"
+                helm lint $chart --strict
+              fi
+            done
+          fi
