@@ -8,10 +8,12 @@ dist/
 dist-ssr/
 build/
 out/
+demo docs
 
 TECHNOLOGY_STACK_REPORT.md
 
-docs
+# docs
+!docs/cross-domain-coupling.md
 database
 
 FRONTEND_README.md
