@@ -1,150 +1,223 @@
-# 🏗️ AuraBank — Production Infrastructure & DevOps/SRE Blueprint
+# 🏗️ AuraBank — End-to-End Microservices Architecture & Interview Blueprint
 
 <div align="center">
 
-![DevOps Banner](https://img.shields.io/badge/DEVOPS-SRE_ARCHITECTURE-FF9900?style=for-the-badge&logo=kubernetes)
+![DevOps Banner](https://img.shields.io/badge/DEVOPS-SYSTEM_DESIGN_BLUEPRINT-FF9900?style=for-the-badge&logo=kubernetes)
 
-**Enterprise-Grade Microservices Architecture, Event-Driven Streaming with Apache Kafka (KRaft), LocalStack AWS Emulation, OpenTelemetry Observability Mesh, GitOps (ArgoCD), and Infrastructure as Code (Terraform)**
+**Complete Production Blueprint & Technical Interview Guide covering Microservices Decomposition, Double-Entry Accounting Ledger, Transactional Outbox, Machine Learning Fraud Engine, OpenTelemetry Mesh, and System Design Interview Scripts.**
 
 </div>
 
 ---
 
-## 📐 1. Architectural Architecture & Topology
+## 📑 Table of Contents
+1. [📐 System Architecture & Microservices Decomposition](#-1-system-architecture--microservices-decomposition)
+2. [🔄 End-to-End Transaction Execution Flow](#-2-end-to-end-transaction-execution-flow)
+3. [⚡ Core Architectural Design Patterns](#-3-core-architectural-design-patterns)
+4. [🛠️ Infrastructure Component Stack](#️-4-infrastructure-component-stack)
+5. [🔐 Security Hardening & Secret Isolation](#-5-security-hardening--secret-isolation)
+6. [🔁 CI/CD Pipeline & GitOps Automation](#-6-cicd-pipeline--gitops-automation)
+7. [🎤 System Design & DevOps Interview Guide](#-7-system-design--devops-interview-guide)
 
-AuraBank uses a decoupled, event-driven microservices topology designed for zero-downtime deployment, sub-10ms risk evaluation, and immutable financial ledger processing.
+---
+
+## 📐 1. System Architecture & Microservices Decomposition
+
+AuraBank is built as a domain-decoupled, event-driven microservices platform consisting of **9 specialized services**:
 
 ```
-                  ┌─────────────────────────────────────────┐
-                  │          Client / Web Browser           │
-                  └────────────────────┬────────────────────┘
-                                       │ HTTP / REST
-                                       ▼
-                  ┌─────────────────────────────────────────┐
-                  │       Frontend SPA (Nginx / React)      │
-                  └────────────────────┬────────────────────┘
-                                       │
-                                       ▼
-                  ┌─────────────────────────────────────────┐
-                  │     Backend API Gateway (Express / Node)│
-                  └──────┬──────────────────┬───────────────┘
-                         │                  │
-           gRPC / OTLP   │                  │ SQL / Redis
-                         ▼                  ▼
-          ┌───────────────────┐    ┌───────────────────┐
-          │  Python AI Risk   │    │  PostgreSQL 15    │
-          │  Engine (FastAPI) │    │  & Redis 7 Cache  │
-          └─────────┬─────────┘    └───────────────────┘
-                    │
-                    ▼
-          ┌─────────────────────────────────────────────┐
-          │ OpenTelemetry Collector ➔ Jaeger & Grafana  │
-          └─────────────────────────────────────────────┘
+                                  ┌───────────────────────────┐
+                                  │   AuraBank Web Frontend   │
+                                  │  (React 18 + TypeScript)  │
+                                  └─────────────┬─────────────┘
+                                                │ REST / JSON
+                                                ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────┐
+ │                               Backend Microservices (Node.js)                            │
+ ├───────────────────┬───────────────────┬───────────────────┬─────────────────────────────┤
+ │ 1. User & Auth    │ 2. Account &      │ 3. Transactions & │ 4. Loans & Credit           │
+ │    Service        │    Ledger Service │    Payments       │    Service                  │
+ ├───────────────────┼───────────────────┼───────────────────┼─────────────────────────────┤
+ │ 5. Cards          │ 6. Customer       │ 7. Analytics &    │ 8. ML Gateway               │
+ │    Management     │    Support Desk   │    Reporting      │    Proxy                    │
+ └───────────────────┴─────────┬─────────┴─────────┬─────────┴─────────────────────────────┘
+                               │                   │
+                  gRPC / HTTP  │                   │ PostgreSQL / Redis / Kafka
+                               ▼                   ▼
+                 ┌──────────────────────────┐  ┌──────────────────────────────────────────┐
+                 │ 9. Python AI & ML Engine │  │ Infrastructure Services                  │
+                 │    (XGBoost + Scikit)    │  │ (Postgres, Redis, Kafka, LocalStack, OTel)│
+                 └──────────────────────────┘  └──────────────────────────────────────────┘
+```
+
+### Detailed Microservices Catalog:
+
+| # | Microservice | Tech Stack | Role & Function in AuraBank |
+|---| :--- | :--- | :--- |
+| **1** | **Frontend SPA** | React 18, TypeScript, Vite | Client portal (`port 3000`) for account management, transfers, card controls, AI loan applications, and live chat. |
+| **2** | **User & Auth Service** | Node.js, Express, JWT | Registration, KYC verification, PIN security, role-based authorization (`USER` vs `ADMIN`). |
+| **3** | **Account & Balance Service** | Node.js, PostgreSQL | Manages checking/savings accounts, balance queries, and account allocation. |
+| **4** | **Transaction & Ledger Service** | Node.js, PostgreSQL, Redis | Core money engine. Enforces double-entry ledger rules ($\sum \text{DEBIT} + \sum \text{CREDIT} = 0$), idempotency locks, and outbox event creation. |
+| **5** | **Loans & Credit Service** | Node.js, Express | Manages personal loan applications, EMI repayment schedules, and admin approval workflows. |
+| **6** | **Cards Management Service** | Node.js, Express | Physical/virtual card issuance, spending limits, card locking, and PIN updates. |
+| **7** | **Customer Support & Chat Service** | Node.js, WebSearch | Customer help desk, support tickets, and AI-assisted financial advice chatbot. |
+| **8** | **Analytics & Reporting Service** | Node.js, Recharts | Aggregates transaction spending categories, monthly cashflow metrics, and admin analytics. |
+| **9** | **Python AI & ML Risk Engine** | Python 3.11, Flask, XGBoost | ML Microservice (`port 5001`). Real-time fraud scoring (`/predict-fraud`), loan risk evaluation (`/predict-loan-risk`), and Scikit-Learn TF-IDF expense categorization. |
+
+---
+
+## 🔄 2. End-to-End Transaction Execution Flow
+
+Here is the exact step-by-step lifecycle when a user initiates a **$500 wire transfer**:
+
+```
+[Customer Frontend]
+       │ 1. POST /api/transactions/transfer (Idempotency-Key: "uuid-1234")
+       ▼
+[Express API Gateway]
+       │ 2. Check Redis for "uuid-1234" (Lock key for 30s)
+       ├───> If already processed ➔ Return cached transaction receipt
+       │
+       │ 3. Call Python AI Risk Engine (/predict-fraud)
+       ├───> Evaluates transaction amount, velocity, & account age
+       ├───> Returns Risk Score: 8/100 (Decision: APPROVE)
+       │
+       │ 4. Open Atomic PostgreSQL Transaction (BEGIN)
+       ├───> UPDATE accounts SET balance = balance - 500 WHERE id = sender
+       ├───> UPDATE accounts SET balance = balance + 500 WHERE id = receiver
+       ├───> INSERT INTO ledger_entries (DEBIT sender $500, CREDIT receiver $500)
+       ├───> INSERT INTO outbox (event: 'TRANSFER_COMPLETED', status: 'PENDING')
+       ├───> COMMIT TRANSACTION
+       │
+       │ 5. Store HTTP response in Redis (Fast-Path Cache)
+       ▼
+[Return HTTP 200 OK] ➔ Customer receives transaction receipt instantly!
+
+─── (Background Async Outbox Process) ───
+[Outbox Worker]
+       │ 6. SELECT * FROM outbox WHERE status = 'PENDING' FOR UPDATE SKIP LOCKED
+       │ 7. Publish payload to Kafka topic 'transaction-events'
+       │ 8. Mark outbox entry status = 'PROCESSED'
+       ▼
+[Kafka Subscribers] ➔ Analytics Service & Notification Engine consume event
 ```
 
 ---
 
-## ⚡ 2. Infrastructure Component Stack
+## ⚡ 3. Core Architectural Design Patterns
 
-| Infrastructure Layer | Component | Implementation & Configuration Details |
+### 1. 🧮 Double-Entry Bookkeeping Ledger
+To guarantee zero monetary drift, money is never modified arbitrarily. Every financial movement generates offsetting ledger entries enforcing:
+$$\sum \text{DEBIT} + \sum \text{CREDIT} = 0$$
+
+- **System Accounts**:
+  - `BANK_CASH`: Cash reserves
+  - `BANK_REVENUE`: Interest & fee income
+  - `SUSPENSE`: Temporary holding account during multi-step settlement
+
+---
+
+### 2. 🔑 Fast-Path Redis Idempotency Engine
+Prevents double-charging when users spam the "Submit Transfer" button:
+- Client attaches `Idempotency-Key: <unique-uuid>`.
+- Express middleware calls Redis `SET key value NX PX 30000`.
+- If key exists, the request returns the cached previous response immediately without touching PostgreSQL or the AI engine.
+
+---
+
+### 3. 📤 Transactional Outbox Pattern with Kafka KRaft
+Solves the dual-write problem (writing to DB + publishing to Kafka in a single HTTP request):
+- DB changes and the outbox event are saved inside the **same atomic SQL transaction**.
+- A background worker polls outbox rows using `SELECT ... FOR UPDATE SKIP LOCKED` (concurrent-safe) and publishes to Apache Kafka KRaft mode.
+- Guarantees **at-least-once event delivery**.
+
+---
+
+### 4. ⚡ Circuit Breaker & Fallback Protection (Opossum)
+If the Python ML Risk Engine (`ai-service:5001`) experiences high latency (>500ms) or crashes:
+- The `Opossum` circuit breaker trips to `OPEN`.
+- Requests bypass the ML model and immediately invoke the **Deterministic Fallback Rule Engine** (approves low-value transfers, flags transfers >$10,000).
+- Prevents database connection pool exhaustion during AI outages.
+
+---
+
+## 🛠️ 4. Infrastructure Component Stack
+
+| Infrastructure Component | Tech & Version | Purpose in AuraBank |
 | :--- | :--- | :--- |
-| **Container Engine** | Docker Compose | Multi-container stack (`docker-compose.yml` & `docker-compose.local.yaml`) with explicit memory/CPU limits and resource quotas. |
-| **Cloud Emulation** | LocalStack 3.0 | Mocks AWS S3, ECR, and Secrets Manager for local AWS development with zero cloud cost. |
-| **Event Streaming** | Apache Kafka (KRaft) | Single-node/multi-broker Zookeeper-less KRaft event bus for asynchronous event processing. |
-| **Model Registry** | MLflow | Experiment tracking and ML artifact storage backed by LocalStack S3. |
-| **Metrics Collector** | Prometheus | Scrapes metrics every 10s across all containers (`/metrics`), alerting via Alertmanager. |
-| **Log Aggregation** | Loki | Centralized container log indexing with 30-day retention policies. |
-| **Distributed Traces** | Jaeger + OTel | End-to-end distributed tracing using OpenTelemetry gRPC exporters (`otel-collector:4317`). |
-| **Dashboarding** | Grafana 10.3 | Pre-configured provisioning providers for system, Kafka lag, payment, and SLO error budget dashboards. |
+| **Cloud Emulation** | LocalStack 3.0 | Mocks AWS S3, ECR, and Secrets Manager locally for zero-cost AWS development. |
+| **Event Bus** | Apache Kafka (KRaft) | Zookeeper-less event broker handling transaction streaming (`port 9092`). |
+| **Kafka Management** | Kafka UI | Visual dashboard (`port 8090`) to inspect topics and payload messages. |
+| **Model Registry** | MLflow 2.11 | Logs XGBoost training runs and model artifacts backed by LocalStack S3 (`port 5002`). |
+| **Metrics Engine** | Prometheus 2.49 | Scrapes metrics every 10s from `/metrics` across Node.js, Python, and cAdvisor (`port 9090`). |
+| **Distributed Tracing** | OpenTelemetry + Jaeger | End-to-end tracing across HTTP & gRPC microservice boundaries (`port 16686`). |
+| **Log Aggregation** | Loki | Centralized container log indexing with Promtail log shipping (`port 3100`). |
+| **Visual Dashboarding** | Grafana 10.3 | Dashboards for System Health, Fraud Metrics, Kafka Lag, and SRE SLO Error Budgets (`port 3001`). |
 
 ---
 
-## 🔐 3. Security Hardening & Secret Management
+## 🔐 5. Security Hardening & Secret Isolation
 
-1. **Non-Root Container Execution**: All production Dockerfiles enforce non-root unprivileged execution (`USER node` / `USER appuser`).
-2. **Multi-Stage Container Builds**: Dockerfiles utilize two-stage builds to exclude compiler tools (`gcc`, `build-essential`, `devDependencies`) from the final runtime image.
-3. **Zero Hardcoded Secrets**: Secrets are loaded exclusively via environment variables referenced from `.env` (gitignored). `.env.example` serves as the public schema template.
-4. **Network Isolation**: Docker Compose networks use driver bridges (`aurabank-network` / `aurabank-local`) to isolate internal database ports from external access.
-
----
-
-## 🔁 4. CI/CD Pipeline Architecture (GitHub Actions)
-
-The repository uses an automated GitHub Actions pipeline ([.github/workflows/ci.yaml](.github/workflows/ci.yaml)):
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Protobuf Lint  │     │ OpenAPI Lint    │     │ Matrix Tests    │
-│  & Generation   │     │ (Spectral 6.x)  │     │ (Node + Python) │
-└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 ▼
-                     ┌───────────────────────┐
-                     │ Docker Build Check    │
-                     │ (BuildKit Cache)      │
-                     └───────────┬───────────┘
-                                 │ (on main push)
-                                 ▼
-                     ┌───────────────────────┐
-                     │ Publish to GHCR       │
-                     │ (ghcr.io image tags)  │
-                     └───────────────────────┘
-```
-
-### Key Workflow Highlights:
-- **`proto-lint`**: Validates `.proto` definitions and generates TypeScript/Python stubs using `buf`. Authenticated via `github_token` to prevent API rate limits.
-- **`docker-build`**: Validates all Dockerfiles (`backend`, `ai-service`, `frontend`) in parallel before any code merge.
-- **`publish`**: Automatically tags images with `sha-<commit>` and `latest` on merge to `main`, pushing to GitHub Container Registry.
+1. **Unprivileged Container Execution**: Production Dockerfiles run with `USER node` and `USER appuser` to block root container execution.
+2. **Multi-Stage Container Builds**: Dockerfiles utilize two-stage builds to strip compilers (`gcc`, `make`, TypeScript compilers) from the final production images.
+3. **Strict Secret Management**: No credentials committed to source control. `.env` is gitignored; `.env.example` provides the environment key contract.
 
 ---
 
-## 📊 5. Observability & SRE Metrics
+## 🔁 6. CI/CD Pipeline & GitOps Automation
 
-### Prometheus SLI/SLO Metrics Exposed:
-- `aurabank_backend_http_request_duration_seconds`: Histogram of HTTP latency across methods and status codes.
-- `container_cpu_usage_seconds_total`: cAdvisor container CPU utilization.
-- `container_memory_working_set_bytes`: cAdvisor working set memory.
-- `kafka_consumergroup_lag`: Consumer group lag per topic.
-
-### Pre-Configured Grafana Dashboards (`monitoring/grafana/dashboards/`):
-- **System Overview**: Container CPU, RAM, Network I/O, and restart counters.
-- **Fraud Engine Overview**: ML risk score distribution, p95 latency, model fallbacks.
-- **Kafka Lag**: Real-time topic consumer lag.
-- **SLO Error Budget**: Error budget burn rate calculation for 99.9% uptime target.
+Automated GitHub Actions pipeline ([.github/workflows/ci.yaml](.github/workflows/ci.yaml)):
+1. **`proto-lint`**: Lints `.proto` schemas and generates TypeScript/Python stubs using `buf` (authenticated via `secrets.GITHUB_TOKEN`).
+2. **`openapi-lint`**: Validates OpenAPI REST specs using Spectral CLI v6.11.1.
+3. **`test`**: Runs parallel Vitest (Node.js) and PyTest (Python) unit test suites.
+4. **`docker-build`**: Validates Docker builds for `backend`, `ai-service`, and `frontend` using Docker BuildKit cache.
+5. **`publish`**: Automatically builds and pushes container images tagged with `sha-<commit>` and `latest` to GitHub Container Registry (`ghcr.io`) on merge to `main`.
 
 ---
 
-## 💾 6. Database Backups & High Availability
+## 🎤 7. System Design & DevOps Interview Guide
 
-- **Automated Backup Sidecar**: `docker-compose.local.yaml` includes a dedicated `pg-backup` container running automated `pg_dump` every 24 hours.
-- **Backup Retention**: Retains the last 7 daily backup dumps in named volume `pg_backups`, auto-purging older snapshots.
+> **Use this section during technical interviews to explain the architecture like a Senior Engineer!**
+
+### ⏱️ The 30-Second Elevator Pitch
+> *"AuraBank is a cloud-native, event-driven digital banking system built with Node.js, Python FastAPI, PostgreSQL, Redis, and Apache Kafka. It features strict double-entry ledger accounting, real-time XGBoost fraud scoring, a transactional outbox engine for reliable Kafka event publishing, and a full OpenTelemetry observability mesh monitored via Prometheus, Jaeger, and Grafana."*
 
 ---
 
-## 🚀 7. Infrastructure Commands Cheat Sheet
+### 💬 Top 5 Interview Questions & Answers
 
-```bash
-# Start local development stack (LocalStack, Kafka, MLflow, Monitoring)
-docker compose -f docker-compose.local.yaml up -d --build
+#### **Q1: How do you prevent double-spending or duplicate charges when a user submits a transfer?**
+> **Answer**:  
+> *"We use a two-tiered idempotency strategy. First, the client attaches a unique `Idempotency-Key` header. In Express middleware, we perform an atomic Redis `SETNX` lock with a 30-second TTL. If the key exists, we immediately return the cached response without re-executing logic. Second, at the database level, the `transactions` table enforces a `UNIQUE(idempotency_key)` constraint inside an atomic SQL transaction."*
 
-# Inspect running container resource usage
-docker stats
+---
 
-# Stream logs for a specific service
-docker compose logs -f backend
+#### **Q2: How do you guarantee money is never lost or created out of thin air?**
+> **Answer**:  
+> *"We enforce strict double-entry accounting. Balance updates and ledger entries are executed inside a single PostgreSQL transaction (`BEGIN ... COMMIT`). For every credit to an account, an equal debit is posted to another account, satisfying $\sum \text{DEBIT} + \sum \text{CREDIT} = 0$. If any operation fails, the entire transaction rolls back."*
 
-# Verify database backup volume
-docker exec -it aurabank-pg-backup ls -la /backups
+---
 
-# Gracefully bring down all containers and clean up networks
-docker compose -f docker-compose.local.yaml down
-```
+#### **Q3: What happens if the Python AI Fraud service goes down or times out during a transfer?**
+> **Answer**:  
+> *"We implement the Circuit Breaker pattern using Opossum. If the AI service fails 5 consecutive times or takes longer than 500ms, the circuit trips to `OPEN`. All incoming requests automatically fallback to a deterministic rule engine (approving low-risk transfers under $10,000 and flagging higher amounts). This prevents cascading timeouts and keeps the payment gateway resilient."*
+
+---
+
+#### **Q4: How do you handle writing to the database and publishing events to Kafka without using expensive 2-Phase Commit (2PC) transactions?**
+> **Answer**:  
+> *"We implement the Transactional Outbox Pattern. When a transaction succeeds, we insert an event row into an `outbox` table within the same SQL transaction. A separate background worker thread periodically polls the outbox using `SELECT * FROM outbox WHERE status = 'PENDING' FOR UPDATE SKIP LOCKED`. It publishes events to Kafka and marks them as `PROCESSED`. This guarantees at-least-once event delivery without blocking the user response."*
+
+---
+
+#### **Q5: How do you trace a slow request across Node.js, Python, and PostgreSQL?**
+> **Answer**:  
+> *"We use OpenTelemetry distributed tracing. The Express backend injects a `traceparent` W3C header into downstream HTTP/gRPC requests to the Python AI service. Both services export trace spans to the OpenTelemetry Collector, which sends them to Jaeger. In Jaeger or Grafana, we can view the end-to-end waterfall timeline and identify exact latency bottlenecks down to individual SQL queries or ML model inference calls."*
 
 ---
 
 <div align="center">
 
-*AuraBank Infrastructure & SRE Engineering Team*
+**AuraBank Production Engineering & Interview Guide** • Maintained by [@9046balaji](https://github.com/9046balaji)
 
 </div>
