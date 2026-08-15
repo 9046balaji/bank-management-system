@@ -473,9 +473,12 @@ services:
   # Access at http://localhost:8085
   # ============================================================
   jenkins:
-    image: jenkins/jenkins:lts-jdk17
+    image: jenkins/jenkins:lts-jdk21
     container_name: aurabank-jenkins
     restart: on-failure:5
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     ports:
       - "8085:8080"
       - "50000:50000"
