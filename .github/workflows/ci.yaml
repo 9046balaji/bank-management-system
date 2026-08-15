@@ -19,6 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - run: buf lint proto/
       - run: buf generate proto/ --template proto/buf.gen.yaml
       - uses: actions/upload-artifact@v4
@@ -87,7 +89,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v3
+      - uses: azure/setup-helm@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           if [ -d "helm" ]; then
             for chart in helm/*/; do
@@ -113,8 +117,8 @@ jobs:
             context: ./ai-service
             dockerfile: ./ai-service/Dockerfile
           - service: frontend
-            context: .
-            dockerfile: ./Dockerfile
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
@@ -149,8 +153,8 @@ jobs:
             context: ./ai-service
             dockerfile: ./ai-service/Dockerfile
           - service: frontend
-            context: .
-            dockerfile: ./Dockerfile
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - name: Log in to GitHub Container Registry
