@@ -148,6 +148,7 @@ If the Python ML Risk Engine (`ai-service:5001`) experiences high latency (>500m
 | **Cloud Emulation** | LocalStack 3.0 | Mocks AWS S3, ECR, and Secrets Manager locally for zero-cost AWS development. |
 | **Event Bus** | Apache Kafka (KRaft) | Zookeeper-less event broker handling transaction streaming (`port 9092`). |
 | **Kafka Management** | Kafka UI | Visual dashboard (`port 8090`) to inspect topics and payload messages. |
+| **Jenkins CI/CD** | Jenkins 2.541 | Local pipeline server running declarative `Jenkinsfile` with Trivy scanning (`port 8085`). |
 | **Model Registry** | MLflow 2.11 | Logs XGBoost training runs and model artifacts backed by LocalStack S3 (`port 5002`). |
 | **Metrics Engine** | Prometheus 2.49 | Scrapes metrics every 10s from `/metrics` across Node.js, Python, and cAdvisor (`port 9090`). |
 | **Distributed Tracing** | OpenTelemetry + Jaeger | End-to-end tracing across HTTP & gRPC microservice boundaries (`port 16686`). |
@@ -166,12 +167,13 @@ If the Python ML Risk Engine (`ai-service:5001`) experiences high latency (>500m
 
 ## 🔁 6. CI/CD Pipeline & GitOps Automation
 
-Automated GitHub Actions pipeline ([.github/workflows/ci.yaml](.github/workflows/ci.yaml)):
+Automated GitHub Actions workflow ([.github/workflows/ci.yaml](.github/workflows/ci.yaml)) & Jenkins Pipeline ([Jenkinsfile](Jenkinsfile)):
 1. **`proto-lint`**: Lints `.proto` schemas and generates TypeScript/Python stubs using `buf` (authenticated via `secrets.GITHUB_TOKEN`).
 2. **`openapi-lint`**: Validates OpenAPI REST specs using Spectral CLI v6.11.1.
 3. **`test`**: Runs parallel Vitest (Node.js) and PyTest (Python) unit test suites.
-4. **`docker-build`**: Validates Docker builds for `backend`, `ai-service`, and `frontend` using Docker BuildKit cache.
+4. **`docker-build`**: Validates Docker builds for `backend`, `ai-service`, and `frontend` using Docker BuildKit cache (`mode=min` & CPU-only PyTorch wheel).
 5. **`publish`**: Automatically builds and pushes container images tagged with `sha-<commit>` and `latest` to GitHub Container Registry (`ghcr.io`) on merge to `main`.
+6. **`jenkins-pipeline`**: Runs parallel linting, test suites, multi-stage Docker builds, Trivy container security scans, and deployment triggers on local Jenkins (`http://localhost:8085`).
 
 ---
 

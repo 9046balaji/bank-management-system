@@ -34,6 +34,43 @@ flowchart TD
 
 ---
 
+## ⚙️ 2. Jenkins Declarative Pipeline Architecture (`Jenkinsfile`)
+
+```mermaid
+flowchart TD
+    JStart(["Jenkins Trigger (Git SCM / Webhook)"]) --> JCheckout["Checkout Repository Source Code"]
+
+    subgraph JParallelLint["⚡ Parallel Linting Stage"]
+        JCheckout --> JProto["buf lint proto/"]
+        JCheckout --> JSpectral["spectral lint openapi/*.yaml"]
+        JCheckout --> JHelm["helm lint helm/*/"]
+    end
+
+    subgraph JParallelTest["🧪 Parallel Test Stage"]
+        JCheckout --> JNodeTest["npm test (backend)"]
+        JCheckout --> JPyTest["pytest tests/ --cov (ai-service)"]
+    end
+
+    JProto --> JGate{"All Lints & Unit Tests Passed?"}
+    JSpectral --> JGate
+    JHelm --> JGate
+    JNodeTest --> JGate
+    JPyTest --> JGate
+
+    JGate -- No --> JFail(["❌ Jenkins Build Failed"])
+    JGate -- Yes --> JDockerBuild["Parallel Docker Multi-Stage Build"]
+
+    JDockerBuild --> JTrivyScan["Trivy Security Vulnerability Scan"]
+    JTrivyScan --> JBranchCheck{"Is Branch main?"}
+
+    JBranchCheck -- No --> JPRDone(["✅ Jenkins PR Build Succeeded"])
+    JBranchCheck -- Yes --> JPushGHCR["Log in & Push Images to GHCR ghcr.io"]
+    JPushGHCR --> JDeploy["Trigger Local Compose Deployment"]
+    JDeploy --> JPrune["docker image prune (Workspace Cleanup)"]
+```
+
+---
+
 ## 📊 2. OpenTelemetry & Observability Mesh Architecture
 
 ```mermaid

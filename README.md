@@ -94,6 +94,7 @@ When you run the project, the following services are automatically started for y
 | **AuraBank Web App** | `http://localhost:3000` | Main User & Admin Banking Portal |
 | **Backend API** | `http://localhost:5000` | Express REST API Backend |
 | **AI Risk Engine** | `http://localhost:5001` | Python Machine Learning Service |
+| **Jenkins CI/CD** | `http://localhost:8085` | Local Jenkins Pipeline Server (`Jenkinsfile`) |
 | **Grafana Monitoring** | `http://localhost:3001` | System & Metric Dashboards (`admin`/`admin`) |
 | **Kafka UI** | `http://localhost:8090` | Event Stream Visualizer (`admin`/`aurabank_kafka_ui_2026`) |
 | **Jaeger Tracing** | `http://localhost:16686` | Distributed Request Tracing |

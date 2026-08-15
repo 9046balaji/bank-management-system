@@ -351,6 +351,41 @@ flowchart TD
     PushImages --> SuccessCD(["🚀 CD Deployment Ready"])
 ```
 
+### Jenkins Declarative Pipeline Flowchart (`Jenkinsfile`)
+
+```mermaid
+flowchart TD
+    JStart(["Jenkins Trigger (Git SCM / Webhook)"]) --> JCheckout["Checkout Repository Source Code"]
+
+    subgraph JParallelLint["⚡ Parallel Linting Stage"]
+        JCheckout --> JProto["buf lint proto/"]
+        JCheckout --> JSpectral["spectral lint openapi/*.yaml"]
+        JCheckout --> JHelm["helm lint helm/*/"]
+    end
+
+    subgraph JParallelTest["🧪 Parallel Test Stage"]
+        JCheckout --> JNodeTest["npm test (backend)"]
+        JCheckout --> JPyTest["pytest tests/ --cov (ai-service)"]
+    end
+
+    JProto --> JGate{"All Lints & Unit Tests Passed?"}
+    JSpectral --> JGate
+    JHelm --> JGate
+    JNodeTest --> JGate
+    JPyTest --> JGate
+
+    JGate -- No --> JFail(["❌ Jenkins Build Failed"])
+    JGate -- Yes --> JDockerBuild["Parallel Docker Multi-Stage Build"]
+
+    JDockerBuild --> JTrivyScan["Trivy Security Vulnerability Scan"]
+    JTrivyScan --> JBranchCheck{"Is Branch main?"}
+
+    JBranchCheck -- No --> JPRDone(["✅ Jenkins PR Build Succeeded"])
+    JBranchCheck -- Yes --> JPushGHCR["Log in & Push Images to GHCR ghcr.io"]
+    JPushGHCR --> JDeploy["Trigger Local Compose Deployment"]
+    JDeploy --> JPrune["docker image prune (Workspace Cleanup)"]
+```
+
 ---
 
 ## 🐳 7. Docker Container Network & Storage Topology
@@ -363,6 +398,7 @@ graph TD
         Port3000["Port 3000 (Web App)"]
         Port5000["Port 5000 (Backend API)"]
         Port5001["Port 5001 (AI Engine)"]
+        Port8085["Port 8085 (Jenkins CI/CD)"]
         Port3001["Port 3001 (Grafana)"]
         Port8090["Port 8090 (Kafka UI)"]
         Port9090["Port 9090 (Prometheus)"]
@@ -377,6 +413,7 @@ graph TD
         RedisC["aurabank-redis (Redis 7)"]
         KafkaC["aurabank-kafka (KRaft)"]
         LocalStackC["aurabank-localstack (AWS Mock)"]
+        JenkinsC["aurabank-jenkins (Jenkins)"]
         GrafanaC["aurabank-grafana"]
         PromC["aurabank-prometheus"]
         JaegerC["aurabank-jaeger"]
@@ -389,11 +426,13 @@ graph TD
         VolProm[("prometheus_data")]
         VolGrafana[("grafana_data")]
         VolBackups[("pg_backups")]
+        VolJenkins[("jenkins_local_data")]
     end
 
     Port3000 --> FrontendC
     Port5000 --> BackendC
     Port5001 --> AIC
+    Port8085 --> JenkinsC
     Port3001 --> GrafanaC
     Port8090 --> KafkaC
     Port9090 --> PromC
@@ -410,6 +449,7 @@ graph TD
     RedisC --- VolRedis
     PromC --- VolProm
     GrafanaC --- VolGrafana
+    JenkinsC --- VolJenkins
     BackupC --- VolBackups
     BackupC --> DBC
 ```
