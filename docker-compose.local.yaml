@@ -129,8 +129,8 @@ services:
     container_name: aurabank-kafka-ui
     restart: on-failure:5
     ports:
-      # FIX #15: Bind only to localhost to prevent external access
-      - "127.0.0.1:9080:8080"
+      # Bound to 8090 to avoid conflict with Windows NahimicService on port 9080
+      - "127.0.0.1:8090:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: aurabank-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
