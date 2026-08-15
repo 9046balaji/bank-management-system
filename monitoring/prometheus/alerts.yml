@@ -1,7 +1,66 @@
 # monitoring/prometheus/alerts.yml
-# Alertmanager rules for AuraBank platform SRE & Production Hardening
+# Alertmanager rules for AuraBank platform SRE, Infrastructure & Production Hardening
 
 groups:
+  # ============================================================
+  # 1. INFRASTRUCTURE & CONTAINER METRIC ALERTS
+  # (CPU, Memory, Disk, Service Availability)
+  # ============================================================
+  - name: infrastructure_alerts
+    rules:
+      - alert: HostHighCPUUtilization
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Host CPU utilization > 85% on {{ $labels.instance }}"
+          description: "High CPU usage detected over 5-minute interval."
+
+      - alert: HostHighMemoryUtilization
+        expr: ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Host Memory utilization > 85% on {{ $labels.instance }}"
+          description: "High RAM consumption detected over 5-minute interval."
+
+      - alert: LowDiskSpaceAvailable
+        expr: ((node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100) < 15
+        for: 5m
+        labels:
+          severity: critical
+          team: devops
+        annotations:
+          summary: "Disk space available < 15% on {{ $labels.mountpoint }}"
+          description: "Host storage is critically low. Risk of log fill or disk failure."
+
+      - alert: ContainerServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: devops
+        annotations:
+          summary: "Service target down: {{ $labels.job }} ({{ $labels.instance }})"
+          description: "Prometheus failed to scrape endpoint for more than 1 minute."
+
+      - alert: ContainerHighMemoryUsage
+        expr: container_memory_working_set_bytes{container=""} > 400000000
+        for: 3m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Container {{ $labels.name }} memory usage > 400MB"
+          description: "Container RAM usage is approaching configured memory limits."
+
+  # ============================================================
+  # 2. PAYMENT & SERVICE LEVEL OBJECTIVE (SLO) ALERTS
+  # ============================================================
   - name: payment_slo_alerts
     rules:
       - alert: PaymentAPIErrorBudgetBurnRate
