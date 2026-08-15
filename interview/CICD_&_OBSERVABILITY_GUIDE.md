@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart TD
-    Push([Git Push / PR to main]) --> Checkout[actions/checkout@v4]
+    Push(["Git Push / PR to main"]) --> Checkout["actions/checkout@v4"]
 
     subgraph ParallelJobs["⚡ Parallel Validation Jobs"]
         Checkout --> ProtoLint["bufbuild/buf-setup-action@v1<br/>Protobuf Lint & Generate"]
@@ -17,17 +17,17 @@ flowchart TD
         Checkout --> HelmLint["azure/setup-helm@v4<br/>Helm Chart Lint"]
     end
 
-    ProtoLint --> Gate{All Tests Passed?}
+    ProtoLint --> Gate{"All Tests Passed?"}
     SpectralLint --> Gate
     UnitTests --> Gate
     HelmLint --> Gate
 
     Gate -- Yes --> DockerBuild["docker/build-push-action@v5<br/>Docker Build Validation (BuildKit)"]
-    Gate -- No --> Stop([❌ Workflow Failed])
+    Gate -- No --> Stop(["❌ Workflow Failed"])
 
-    DockerBuild --> BranchCheck{Branch == main?}
+    DockerBuild --> BranchCheck{"Is Branch main?"}
     BranchCheck -- Yes --> GHCR["Publish Docker Images to GHCR<br/>ghcr.io/owner/repo-service:sha-commit"]
-    BranchCheck -- No --> PRDone([✅ PR Succeeded])
+    BranchCheck -- No --> PRDone(["✅ PR Succeeded"])
 
     GHCR --> DeployTrigger["Trigger Automated Deployment"]
 ```

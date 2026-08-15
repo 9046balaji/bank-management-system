@@ -324,31 +324,31 @@ GitHub Actions pipeline flow showing automated linting, test matrices, Docker im
 
 ```mermaid
 flowchart TD
-    Start([Push to main / PR Created]) --> Checkout[git checkout repository]
+    Start(["Git Push / PR Created"]) --> Checkout["git checkout repository"]
 
     subgraph ParallelValidation["⚡ Parallel Validation Stage"]
         Checkout --> ProtoLint["Buf Protobuf Lint & Generate<br/>(github_token authenticated)"]
         Checkout --> SpectralLint["OpenAPI Spectral Lint<br/>(spectral-cli v6.11.1)"]
-        Checkout --> MatrixTest["Matrix Unit Tests<br/>(Node 20 + Python 3.11)"]
+        Checkout --> MatrixTest["Matrix Unit Tests<br/>(Node 20 & Python 3.11)"]
         Checkout --> HelmLint["Azure Helm Chart Lint<br/>(azure/setup-helm@v4)"]
     end
 
-    ProtoLint --> AllValidated{All Validation Passed?}
+    ProtoLint --> AllValidated{"All Validation Passed?"}
     SpectralLint --> AllValidated
     MatrixTest --> AllValidated
     HelmLint --> AllValidated
 
-    AllValidated -- No --> FailCI([❌ CI Pipeline Failed])
+    AllValidated -- No --> FailCI(["❌ CI Pipeline Failed"])
     AllValidated -- Yes --> DockerBuild["Docker Build Validation<br/>(BuildKit Cache)"]
 
-    DockerBuild --> IsMainBranch{Is Push to Main Branch?}
+    DockerBuild --> IsMainBranch{"Is Push to Main Branch?"}
 
-    IsMainBranch -- No (PR) --> SuccessPR([✅ PR Checks Succeeded])
-    IsMainBranch -- Yes --> LoginGHCR[Log in to GitHub Container Registry ghcr.io]
+    IsMainBranch -- No --> SuccessPR(["✅ PR Checks Succeeded"])
+    IsMainBranch -- Yes --> LoginGHCR["Log in to GitHub Container Registry ghcr.io"]
 
-    LoginGHCR --> TagImages[Generate Image Tags: sha-commit & latest]
-    TagImages --> PushImages[Push backend, ai-service, frontend to GHCR]
-    PushImages --> SuccessCD([🚀 CD Deployment Ready])
+    LoginGHCR --> TagImages["Generate Image Tags: sha-commit & latest"]
+    TagImages --> PushImages["Push backend, ai-service, frontend to GHCR"]
+    PushImages --> SuccessCD(["🚀 CD Deployment Ready"])
 ```
 
 ---
