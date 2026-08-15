@@ -131,7 +131,7 @@ jobs:
           push: false
           tags: aurabank-${{ matrix.service }}:ci-test
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
   # ── FIX #11: CD — Push Images to GHCR on main branch ─────────────────
   publish:
@@ -183,7 +183,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
   # ── Automated Deployment Job ─────────────────────────────────────────
   deploy-environment:
