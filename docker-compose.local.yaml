@@ -27,6 +27,7 @@ volumes:
   mlflow_local_data:
   loki_local_data:
   pg_backups:  # FIX #25: Database backup storage volume
+  jenkins_local_data:
 
 services:
 
@@ -463,6 +464,28 @@ services:
       driver: "json-file"
       options:
         max-size: "5m"
+        max-file: "3"
+    networks:
+      - aurabank-local
+
+  # ============================================================
+  # JENKINS CI/CD SERVER — Local Pipeline Runner
+  # Access at http://localhost:8085
+  # ============================================================
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: aurabank-jenkins
+    restart: on-failure:5
+    ports:
+      - "8085:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_local_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
         max-file: "3"
     networks:
       - aurabank-local
